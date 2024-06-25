@@ -1552,12 +1552,21 @@ then
 	halfnproc=$(($nproc / 2))
 	echo "Consider setting up environment to put other executable in $path_w or $path_w/toy_model"
 	echo "Use $halfnproc MPI Ranks for both of them"
-        echo "Currently hardcoding executable and input file to ~/codes/ERF/Exec/ABL/ERF3d.gnu.TEST.TPROF.MPI.ex ~/codes/ERF/Exec/ABL/inputs_mpmd"
+	path_mpmd_e=~/codes/ERF/Exec/ABL/ERF3d.gnu.TEST.TPROF.MPI.ex
+	path_mpmd_i=~/codes/ERF/Exec/ABL/inputs_mpmd
+        echo "Currently hardcoding executable and input file to $path_mpmd_e $path_mpmd_i , if this is not found assume submodule"
+	if ! [ -f $path_mpmd_i]; then
+	    path_mpmd_e=$ww3_dir/../../Exec/ABL/ERF3d.gnu.TEST.TPROF.MPI.ex
+	    path_mpmd_i=$ww3_dir/../../Exec/ABL/inputs_mpmd
+	fi
+	mkdir $path_w/MPMD
+        cp $path_mpmd_e $path_w/MPMD
+        cp $path_mpmd_i $path_w/MPMD
       if [ $runcmd = "srun" ]
       then
           errmsg "Error occured during $path_e/$prog execution"
           exit 1
-      elif $runcmd -np $halfnproc $path_e/$prgb : -np $halfnproc ~/codes/ERF/Exec/ABL/ERF3d.gnu.TEST.TPROF.MPI.ex ~/codes/ERF/Exec/ABL/inputs_mpmd | tee $ofile
+      elif $runcmd -np $halfnproc $path_e/$prgb : -np $halfnproc $path_mpmd_e $path_mpmd_i | tee $ofile
       then
         \rm -f track_i.ww3
         \rm -f $prog.inp
