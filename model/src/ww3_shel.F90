@@ -4,7 +4,8 @@
 !> @author H. L. Tolman @date 22-Mar-2021
 !
 #include "w3macros.h"
-
+#define W3_MPMD
+!#undef W3_MPMD
 !/ ------------------------------------------------------------------- /
 !> @brief A generic shell for WAVEWATCH III, using preformatted
 !>  input fields.
@@ -309,8 +310,12 @@ PROGRAM W3SHEL
   USE OMP_LIB
 #endif
 
+!#ifdef W3_MPI
+!  USE MPI, ONLY: MPI_COMM_WORLD
+!#endif
   USE MPICOMM
 
+  !
   IMPLICIT NONE
   !
 #ifdef W3_MPI
@@ -399,6 +404,12 @@ PROGRAM W3SHEL
   LOGICAL             :: L_MASTER
   LOGICAL             :: FIRST_STEP = .TRUE.
 #endif
+#ifdef W3_MPMD
+  LOGICAL             :: FIRST_STEP = .TRUE., initialized, mpi_initialized_by_us
+  integer             :: flag, myproc, nprocs, max_appnum, min_appnum, this_root, other_root, rank_offset, this_nboxes
+  integer             :: p, appnum, all_appnum(10), napps, all_argc(10), end_flag
+  CHARACTER(LEN=80)   :: exename
+#endif
   character(len=10)   :: jchar
   integer             :: memunit
   !
@@ -471,6 +482,7 @@ PROGRAM W3SHEL
   FLHYBR = .TRUE.
 #endif
 
+#ifndef W3_MPMD
 #ifdef W3_OASIS
   IF (OASISED.EQ.1) THEN
     CALL CPL_OASIS_INIT(MPI_COMM)
@@ -495,6 +507,84 @@ PROGRAM W3SHEL
 #ifdef W3_OASIS
   END IF
 #endif
+#else
+
+#ifdef W3_MPI
+  initialized = .true.
+  mpi_initialized_by_us = .false.
+
+  CALL MPI_Initialized(flag, IERR_MPI)
+
+    if (flag .eq. 0) then
+        CALL MPI_Init(IERR_MPI);
+        mpi_initialized_by_us = .true.
+     endif
+
+      MPI_COMM_WW3 = MPI_COMM_WORLD
+
+#ifdef W3_MPI
+  CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NPROCS, IERR_MPI )
+#endif
+#ifdef W3_MPI
+  CALL MPI_COMM_RANK ( MPI_COMM_WORLD, MYPROC, IERR_MPI )
+  MYPROC = MYPROC + 1
+#endif
+
+  CALL MPI_Comm_get_attr(MPI_COMM_WORLD, MPI_APPNUM, p, flag, IERR_MPI)
+  appnum = p
+
+  CALL MPI_Allgather(appnum, 1, MPI_INT, all_appnum, 1, MPI_INT, MPI_COMM_WORLD, IERR_MPI)
+  min_appnum=2147483647
+  max_appnum=-2147483647
+  napps = 2
+  do i=1,10
+     min_appnum=min(all_appnum(i),min_appnum)
+     max_appnum=max(all_appnum(i),max_appnum)
+  end do
+  do i=1,10
+     if((all_appnum(i) .ne. min_appnum) .and. (all_appnum(i) .ne. max_appnum)) then
+        print*,all_appnum(i), "does not match max or min, so napp != 2", min_appnum, max_appnum
+        napps = 3
+     end if
+  end do
+
+!    // MPI_APPNUM does not appear to work with slurm on some systems.
+!    if (napps != 2) {
+!        std::vector<int> all_argc(nprocs);
+!        MPI_Allgather(&argc, 1, MPI_INT, all_argc.data(), 1, MPI_INT, MPI_COMM_WORLD);
+!        napps = num_unique_elements(all_argc);
+!        if (napps == 2) {
+!            appnum = static_cast<int>(argc != all_argc[0]);
+!        }
+!    }
+
+!    if (napps != 2) {
+!        std::string exename;
+!        if (argc > 0) {
+!            exename = std::string(argv[0]);
+!        }
+!        unsigned long long hexe = std::hash<std::string>{}(exename);
+!        std::vector<unsigned long long> all_hexe(nprocs);
+!        MPI_Allgather(&hexe, 1, MPI_UNSIGNED_LONG_LONG,
+!                      all_hexe.data(), 1, MPI_UNSIGNED_LONG_LONG, MPI_COMM_WORLD);
+!        napps = num_unique_elements(all_hexe);
+!        if (napps == 2) {
+!            appnum = static_cast<int>(hexe != all_hexe[0]);
+!        }
+!    }
+
+    if (napps .ne. 2) then
+        print*, "amrex::MPMD only supports two programs."
+        CALL MPI_Abort(MPI_COMM_WORLD, 1);
+    end if
+    CALL MPI_Comm_split(MPI_COMM_WORLD, appnum, myproc, MPI_COMM_WW3, IERR_MPI)
+#endif
+  IS_EXTERNAL_COMPONENT = .TRUE.
+
+#ifdef W3_MPI
+    MPI_COMM = MPI_COMM_WW3
+#endif
+#endif
   !
   !
 #ifdef W3_MPI
@@ -504,6 +594,38 @@ PROGRAM W3SHEL
   CALL MPI_COMM_RANK ( MPI_COMM, IAPROC, IERR_MPI )
   IAPROC = IAPROC + 1
 #endif
+
+#ifdef W3_MPMD
+!  IAPROC = IAPROC - 1
+!  MYPROC = MYPROC - 1
+#ifdef W3_MPI
+  print*, "My rank is ",MYPROC," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM
+  ! Should MPMD use the MPI rank indices adjusted for fortran?
+  !  print*, "My rank is ",MYPROC-1," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC-1," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM
+#if 0
+  this_nboxes=10
+  rank_offset = MyProc - IAPROC;
+  if (rank_offset .eq. 0) then ! First program
+     this_root = 0
+     other_root = NAPROC
+  else
+     this_root = rank_offset
+     other_root = 0
+  end if
+
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+        CALL MPI_Send(this_nboxes, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
+     else ! the second program
+        CALL MPI_Send(this_nboxes, 1, MPI_INT, other_root, 1, MPI_COMM_WORLD, IERR_MPI)
+     end if
+  end if
+#endif
+#else
+  print*, "Not using MPI this run"
+#endif
+#endif
+
   memunit = 740+IAPROC
   !
 #ifdef W3_NCO
@@ -568,8 +690,13 @@ PROGRAM W3SHEL
   NDSF(9)  = 20
 #endif
   !
+#if 0
+  NAPOUT = 0
+  NAPERR = 0
+#else
   NAPOUT = 1
   NAPERR = 1
+#endif
   !
 #ifdef W3_COU
   OFILE  = 'output.ww3'
@@ -1199,7 +1326,7 @@ PROGRAM W3SHEL
   END IF ! FLGNML
 
 
-
+print*, FLGNML, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   !
   ! process old ww3_shel.inp format
   !
@@ -1686,7 +1813,6 @@ PROGRAM W3SHEL
   ! 2.1 input fields
 
   ! 2.1.a Opening field and data files
-
   IF ( IAPROC .EQ. NAPOUT ) WRITE (NDSO,950)
   IF ( FLFLG ) THEN
     IF ( IAPROC .EQ. NAPOUT ) WRITE (NDSO,951)                  &
@@ -1919,6 +2045,7 @@ PROGRAM W3SHEL
   CALL W3INIT ( 1, .FALSE., 'ww3', NDS, NTRACE, ODAT, FLGRD, FLGR2, FLGD,    &
        FLG2, NPTS, X, Y, PNAMES, IPRT, PRTFRM, MPI_COMM,   &
        FLAGSTIDEIN=FLAGSTIDE )
+
   !
   !      IF (MINVAL(VA) .LT. 0.) THEN
   !        WRITE(740+IAPROC,*) 'NEGATIVE ACTION SHELL 5', MINVAL(VA)
@@ -2733,7 +2860,28 @@ PROGRAM W3SHEL
   ELSE
 #endif
 #ifdef W3_MPI
-    CALL MPI_FINALIZE  ( IERR_MPI )
+#ifdef W3_MPMD
+#if 0
+     END_FLAG=-1
+     if (MyProc-1 .eq. this_root) then
+        if (rank_offset .eq. 0) then !  the first program
+           CALL MPI_Send(END_FLAG, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
+        else ! the second program
+           CALL MPI_Send(END_FLAG, 1, MPI_INT, other_root, 1, MPI_COMM_WORLD, IERR_MPI)
+        end if
+     end if
+#endif
+
+     CALL MPI_BARRIER(MPI_COMM_WORLD, IERR_MPI)
+     CALL MPI_COMM_FREE(MPI_COMM_WW3, IERR_MPI)
+     if(mpi_initialized_by_us) then
+        CALL MPI_FINALIZE  ( IERR_MPI )
+        mpi_initialized_by_us = .false.
+     endif
+     initialized = .false.
+#else
+     CALL MPI_FINALIZE  ( IERR_MPI )
+#endif
 #endif
 #ifdef W3_OASIS
   END IF

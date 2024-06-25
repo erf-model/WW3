@@ -64,7 +64,7 @@ PROGRAM WW3_SYSTRK
   !
   IMPLICIT NONE
 #ifdef W3_MPI
-
+  
   INCLUDE "mpif.h"
 #endif
   !

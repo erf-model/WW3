@@ -522,7 +522,7 @@ CONTAINS
     !
     ! 1.  Set-up of data structures and I/O  ----------------------------- /
     ! 1.a Point to proper data structures.
-
+    print*,"CONSIDER putting MPMD init here for now in w3init"
     CALL W3SETO ( IMOD, MDS(2), MDS(3) )
 
     memunit = 10000+IAPROC

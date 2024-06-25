@@ -58,6 +58,7 @@ Options:
   -C coupl         : invoke test using <coupl> coupled application
                    :   OASIS : OASIS3-mct ww3_shel coupled application
                    :   ESMF  : ESMF ww3_multi coupled application
+                   :   MPMD  : ESMF ww3_shel coupled application
   -d               : invoke main program using gdb (non-parallel)
   -f               : force pre- and post-processing programs to be compiled
                    : non-MPI (i.e., with SHRD switch); default is all programs
@@ -203,6 +204,14 @@ case $coupl in
     if [ -z "$ESMFMKFILE" ]
     then
       errmsg "ESMFMKFILE must be defined with coupl = $coupl"
+      usage
+      exit 1
+    fi
+  ;;
+  MPMD)
+    if [ $multi -ne 0 ]
+    then
+      errmsg "coupl = $coupl with ww3_multi is not supported"
       usage
       exit 1
     fi
@@ -395,6 +404,12 @@ then
     exit 1
   fi
   export OASISDIR=$path_w/work_oasis3-mct
+fi
+
+if [ $multi -eq 0 ] && [ $coupl = "MPMD" ]
+then
+  ww3_dir=${path_s}/..
+  echo   "$path_i/prep_env.sh $path_i $path_w $swtstr $ww3_dir"
 fi
 
 cd $path_s
@@ -1528,6 +1543,26 @@ then
       then
         \rm -f track_i.ww3
         \rm -f $prog.inp
+      else
+        errmsg "Error occured during $path_e/$prog execution"
+        exit 1
+      fi
+    elif [ $multi -eq 0 ] && [ $coupl = "MPMD" ]
+    then
+	halfnproc=$(($nproc / 2))
+	echo "put other executable in $path_w or $path_w/toy_model"
+	echo "Use $halfnproc for both of them"
+        echo "hardcoding executable and input file for now to ~/codes/ERF/Exec/ABL/ERF3d.gnu.TEST.TPROF.MPI.ex ~/codes/ERF/Exec/ABL/inputs_mpmd"
+#	echo "$runcmd $halfnproc ~/codes/amrex-tutorials/ExampleCodes/MPMD/Case-0/Source_1/main3d.gnu.DEBUG.MPI.ex : -np $halfnproc ~/codes/amrex-tutorials/ExampleCodes/MPMD/Case-0/Source_2/main3d.gnu.DEBUG.MPI.ex | tee $ofile"
+      if [ $runcmd = "srun" ]
+      then
+          errmsg "Error occured during $path_e/$prog execution"
+          exit 1
+      elif $runcmd -np $halfnproc $path_e/$prgb : -np $halfnproc ~/codes/ERF/Exec/ABL/ERF3d.gnu.TEST.TPROF.MPI.ex ~/codes/ERF/Exec/ABL/inputs_mpmd | tee $ofile
+      then
+        \rm -f track_i.ww3
+        \rm -f $prog.inp
+	  echo "check out outfile $ofile"
       else
         errmsg "Error occured during $path_e/$prog execution"
         exit 1

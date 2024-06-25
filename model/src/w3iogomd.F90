@@ -160,6 +160,96 @@ MODULE W3IOGOMD
        IDSTR = 'WAVEWATCH III GRID OUTPUT FILE'
   !/
 CONTAINS
+    !/ ------------------------------------------------------------------- /
+
+  !> @brief Expand the seapoint array to full grid with handling of
+  !>  SMC regridding.
+  !>
+  !> @details The FLDIRN flag should be set to true for
+  !>  directional fields. In this case, they will be decomposed
+  !>  into U/V components for SMC grid interpolation and converted
+  !>  to oceanograhic convention.
+  !>
+  !> @param[inout] S Sea point array
+  !> @param[out] X Gridded array
+  !> @param[in] FLDIRN Directional field flag
+  !> @author C Bunney  @date 03-Nov-2021
+  SUBROUTINE S2GRID(S, X, FLDIRN)
+    !/
+    !/                  +-----------------------------------+
+    !/                  |           C . Bunney              |
+    !/                  |                        FORTRAN 90 |
+    !/                  | Last update :         03-Nov-2020 |
+    !/                  +-----------------------------------+
+    !/
+    !/    03-Nov-2020 : Creation                            ( version 7.13 )
+    !/
+    !  1. Purpose :
+    !
+    !     Exapand the seapoint array to full grid with handling of
+    !     SMC regridding. The FLDIRN flag should be set to true for
+    !     directional fields. In this case, they will be decomposed
+    !     into U/V components for SMC grid interpolation and converted
+    !     to oceanograhic convention.
+    !
+    !  2. Parameters :
+    !
+    !     Parameter list
+    !     ----------------------------------------------------------------
+    !       S       Real. I  Sea point array
+    !       X       Real. O  Gridded array
+    !       FLDIRN  Bool. I  Directional field flag
+    !     ----------------------------------------------------------------
+    !
+    !/ ------------------------------------------------------------------- /
+    USE W3SERVMD, ONLY : W3S2XY
+    USE W3GDATMD, ONLY : NK, UNGTYPE, MAPSF, NTRI, CLGTYPE, RLGTYPE, &
+         XGRD, YGRD, SX, SY, X0, Y0, TRIGP, USSP_WN, &
+         NX, NY, NSEA, NBEDGE, EDGES
+#ifdef W3_SMC
+  USE W3SMCOMD, SMCNOVAL=>NOVAL
+#endif
+    USE CONSTANTS, ONLY: RADE, UNDEF
+
+    IMPLICIT NONE
+
+    REAL, INTENT(INOUT)  :: S(:)
+    REAL, INTENT(OUT) :: X(:,:)
+    LOGICAL, OPTIONAL, INTENT(IN) :: FLDIRN
+
+    LOGICAL :: FLDR
+    INTEGER :: ISEA
+    REAL                    :: NOVAL      ! Fill value for seapoints with no value
+    NOVAL = UNDEF
+
+    FLDR = .FALSE.
+    IF(PRESENT(FLDIRN)) FLDR = FLDIRN
+
+#ifdef W3_SMC
+    IF( SMCGRD ) THEN
+      CALL W3S2XY_SMC( S, X, FLDR )
+    ELSE ! IF(SMCGRD)
+#endif
+      IF(FLDR) THEN
+        DO ISEA=1, NSEA
+          IF (S(ISEA) .NE. UNDEF )  THEN
+            S(ISEA) = MOD ( 630. - RADE * S(ISEA) , 360. )
+          END IF
+        END DO
+      ENDIF
+
+      ! Change UNDEF sea points to NOVAL, if set differently
+      IF(NOVAL .NE. UNDEF) WHERE(S .EQ. UNDEF) S = NOVAL
+
+      CALL W3S2XY ( NSEA, NSEA, NX+1, NY, S, MAPSF, X )
+#ifdef W3_SMC
+    ENDIF
+#endif
+
+  END SUBROUTINE S2GRID
+
+
+
   !/ ------------------------------------------------------------------- /
   !>
   !> @brief Updates the flags for output parameters based on the mod_def file
@@ -858,6 +948,7 @@ CONTAINS
     CASE('HS')
       I = 2
       J = 1
+
     CASE('LM')
       I = 2
       J = 2
@@ -1316,14 +1407,44 @@ CONTAINS
     USE W3SERVMD, ONLY: STRACE
 #endif
     !
-    USE W3PARALL, ONLY : INIT_GET_ISEA
+    USE W3PARALL, ONLY : INIT_GET_ISEA, SYNCHRONIZE_GLOBAL_ARRAY
+    USE MPICOMM
+#ifdef W3_PDLIB
+    USE W3ODATMD, only : IAPROC, NAPROC, NTPROC
+    USE W3ADATMD, ONLY: MPI_COMM_WCMP
+    use yowDatapool, only: rtype, istatus
+    USE yowNodepool, only: npa
+    use yowNodepool, only: iplg
+    use yowDatapool, only: rkind
+#endif
     IMPLICIT NONE
+#ifdef W3_MPI
+  INCLUDE "mpif.h"
+#endif
+
     !/
     !/ ------------------------------------------------------------------- /
     !/ Parameter list
     !/
     REAL, INTENT(IN)        :: A(NTH,NK,0:NSEAL)
     LOGICAL, INTENT(IN)     :: FLPART, FLOUTG, FLOUTG2
+    ! MY EDITS 
+    INTEGER :: COUNTER
+#define W3_MPMD
+#ifdef W3_MPMD
+  LOGICAL             :: FIRST_STEP = .TRUE., initialized, mpi_initialized_by_us
+  integer             :: flag, myproc, nprocs, max_appnum, min_appnum, this_root, other_root, rank_offset, this_nboxes
+  integer             :: p, appnum, all_appnum(10), napps, all_argc(10), IERR_MPI
+  CHARACTER(LEN=80)   :: exename
+  REAL, ALLOCATABLE       :: X1(:,:)
+#ifdef W3_PDLIB
+  REAL(rkind)         :: XY_SEND(NX*NY)
+  REAL(rkind)         :: XY_SYNCH_SEND(NSEA)
+#else
+  DOUBLE PRECISION    :: XY_SEND(NX*NY)
+  DOUBLE PRECISION    :: XY_SYNCH_SEND(NSEA)
+#endif
+#endif
     !/
     !/ ------------------------------------------------------------------- /
     !/ Local parameters
@@ -1374,6 +1495,7 @@ CONTAINS
     !/
     !/ ------------------------------------------------------------------- /
     !/
+
 #ifdef W3_S
     CALL STRACE (IENT, 'W3OUTG')
 #endif
@@ -1995,6 +2117,7 @@ CONTAINS
         IF ( ET(JSEA) .GE. 0. ) THEN
 #endif
           HS (JSEA) = 4. * SQRT ( ET(JSEA) )
+
 #ifdef W3_O9
         ELSE
           HS (JSEA) = - 4. * SQRT ( -ET(JSEA) )
@@ -2065,6 +2188,130 @@ CONTAINS
       END IF
     END DO
 #endif
+    ! MY EDITS
+
+#ifdef W3_MPMD
+
+#ifdef W3_MPI
+  CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NPROCS, IERR_MPI )
+#endif
+#ifdef W3_MPI
+  CALL MPI_COMM_RANK ( MPI_COMM_WORLD, MYPROC, IERR_MPI )
+  MYPROC = MYPROC + 1
+#endif
+
+#ifdef W3_MPI
+  print*, "My rank is ",MYPROC," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM_WW3
+  ! Should MPMD use the MPI rank indices adjusted for fortran?
+  !  print*, "My rank is ",MYPROC-1," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC-1," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM
+
+  rank_offset = MyProc - IAPROC;
+  if (rank_offset .eq. 0) then ! First program
+     this_root = 0
+     other_root = NAPROC
+  else
+     this_root = rank_offset
+     other_root = 0
+  end if
+  
+  ALLOCATE(X1(NX+1,NY))
+!  ALLOCATE(XY_SEND(NX*NY))
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+        CALL MPI_Send(NX, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
+        CALL MPI_Send(NY, 1, MPI_INT, other_root, 6, MPI_COMM_WORLD, IERR_MPI)
+     else ! the second program
+        CALL MPI_Send(NX, 1, MPI_INT, other_root, 1, MPI_COMM_WORLD, IERR_MPI)
+        CALL MPI_Send(NY, 1, MPI_INT, other_root, 7, MPI_COMM_WORLD, IERR_MPI)
+     end if
+  end if
+
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+        X1     = UNDEF
+        XY_SEND     = UNDEF
+!        DO IX=1,NX
+!           DO IY=1,NY
+!              XY_SEND((IX)+(IY-1)*NX)=0.0
+!           END DO
+!        END DO
+        CALL S2GRID(HS, X1)
+        XY_SYNCH_SEND = HS
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA=1, NSEA
+           CALL INIT_GET_ISEA(ISEA, JSEA)
+           IX     = MAPSF(ISEA,1)
+           IY     = MAPSF(ISEA,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 2, MPI_COMM_WORLD, IERR_MPI)
+        X1     = UNDEF
+        XY_SYNCH_SEND = WLM
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA=1, NSEA
+           CALL INIT_GET_ISEA(ISEA, JSEA)
+           IX     = MAPSF(ISEA,1)
+           IY     = MAPSF(ISEA,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 4, MPI_COMM_WORLD, IERR_MPI)
+     else ! the second program
+        X1     = UNDEF
+        XY_SEND     = UNDEF
+        XY_SYNCH_SEND = HS
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA=1, NSEA
+           CALL INIT_GET_ISEA(ISEA, JSEA)
+           IX     = MAPSF(ISEA,1)
+           IY     = MAPSF(ISEA,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 3, MPI_COMM_WORLD, IERR_MPI)
+        X1     = UNDEF
+        XY_SYNCH_SEND = WLM
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA=1, NSEA
+           CALL INIT_GET_ISEA(ISEA, JSEA)
+           IX     = MAPSF(ISEA,1)
+           IY     = MAPSF(ISEA,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 5, MPI_COMM_WORLD, IERR_MPI)
+     end if
+  end if
+  DEALLOCATE(X1)
+!  DEALLOCATE(XY_SEND)
+#else
+  print*, "Not using MPI this run"
+#endif
+#endif
+    
+    ! MOVE LOOP HERE
+    OPEN(2120, file='output_HS.txt', status='unknown', access='append', action="write")
+
+    ! Write HS values to the new file
+    DO JSEA=1, NSEAL
+        CALL INIT_GET_ISEA(ISEA, JSEA)
+        IX     = MAPSF(ISEA,1)
+        IY     = MAPSF(ISEA,2)
+   
+        WRITE(2120, *) IAPROC, JSEA, ISEA, "(", IX, IY, ")", HS(ISEA)
+    END DO
+    CLOSE(2120)
+
+    ! 
+    OPEN(2121, file='output_LM.txt', status='replace', action="write")
+    ! Write LM values to the new file
+    DO JSEA=1, NSEAL
+        CALL INIT_GET_ISEA(ISEA, JSEA)
+        IX     = MAPSF(ISEA,1)
+        IY     = MAPSF(ISEA,2)
+
+        WRITE(2121, *) "(", IX, IY, ")", WLM(ISEA)
+    END DO
+    CLOSE(2121)
+
+
     !
     ! 4.  Peak frequencies and directions -------------------------------- *
     ! 4.a Initialize
@@ -2232,7 +2479,8 @@ CONTAINS
         WRITE (NDST,9054) ISEA, IX, IY, HS(JSEA), WLM(JSEA),   &
              T0M1(JSEA), RADE*THM(JSEA), THS(JSEA), FP0(JSEA),&
              THP0(JSEA)
-      END IF
+      END IF 
+    
     END DO
 #endif
     !
@@ -2356,6 +2604,7 @@ CONTAINS
     END IF
     
     !
+
     ! Dominant wave breaking probability
     !
     IF (FLOLOC(2, 17)) CALL CALC_WBT(A)
@@ -2713,6 +2962,7 @@ CONTAINS
       !
       ! Create TIMETAG for file name using YYYYMMDD.HHMMS prefix
       WRITE(TIMETAG,"(i8.8,'.'i6.6)")TIME(1),TIME(2)
+
 #ifdef W3_T
       WRITE (NDST,9001) FNMPRE(:J)//TIMETAG//'.out_grd.'//FILEXT(:I)
 #endif
@@ -2780,6 +3030,7 @@ CONTAINS
     !
     ! TIME and flags ----------------------------------------------------- *
     !
+
     IF ( WRITE ) THEN
       WRITE (NDSOG)                            TIME, FLOGRD
 #ifdef W3_ASCII

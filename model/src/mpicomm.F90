@@ -66,7 +66,6 @@ MODULE MPICOMM
   LOGICAL :: IS_EXTERNAL_COMPONENT = .FALSE. !< IS_EXTERNAL_COMPONENT Flag for model invoked via external executable.
   !
   CONTAINS
-
   !/
   !/ End of module MPICOMM ------------------------------------------- /
   !/
