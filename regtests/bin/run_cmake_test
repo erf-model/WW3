@@ -409,7 +409,7 @@ fi
 if [ $multi -eq 0 ] && [ $coupl = "MPMD" ]
 then
   ww3_dir=${path_s}/..
-  echo   "$path_i/prep_env.sh $path_i $path_w $swtstr $ww3_dir"
+  echo   "Consider adding MPMD environment prep to WW3 script $path_i/prep_env.sh $path_i $path_w $swtstr $ww3_dir"
 fi
 
 cd $path_s
@@ -1550,10 +1550,9 @@ then
     elif [ $multi -eq 0 ] && [ $coupl = "MPMD" ]
     then
 	halfnproc=$(($nproc / 2))
-	echo "put other executable in $path_w or $path_w/toy_model"
-	echo "Use $halfnproc for both of them"
-        echo "hardcoding executable and input file for now to ~/codes/ERF/Exec/ABL/ERF3d.gnu.TEST.TPROF.MPI.ex ~/codes/ERF/Exec/ABL/inputs_mpmd"
-#	echo "$runcmd $halfnproc ~/codes/amrex-tutorials/ExampleCodes/MPMD/Case-0/Source_1/main3d.gnu.DEBUG.MPI.ex : -np $halfnproc ~/codes/amrex-tutorials/ExampleCodes/MPMD/Case-0/Source_2/main3d.gnu.DEBUG.MPI.ex | tee $ofile"
+	echo "Consider setting up environment to put other executable in $path_w or $path_w/toy_model"
+	echo "Use $halfnproc MPI Ranks for both of them"
+        echo "Currently hardcoding executable and input file to ~/codes/ERF/Exec/ABL/ERF3d.gnu.TEST.TPROF.MPI.ex ~/codes/ERF/Exec/ABL/inputs_mpmd"
       if [ $runcmd = "srun" ]
       then
           errmsg "Error occured during $path_e/$prog execution"

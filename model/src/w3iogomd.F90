@@ -948,7 +948,6 @@ CONTAINS
     CASE('HS')
       I = 2
       J = 1
-
     CASE('LM')
       I = 2
       J = 2
@@ -1495,7 +1494,6 @@ CONTAINS
     !/
     !/ ------------------------------------------------------------------- /
     !/
-
 #ifdef W3_S
     CALL STRACE (IENT, 'W3OUTG')
 #endif
@@ -2117,7 +2115,6 @@ CONTAINS
         IF ( ET(JSEA) .GE. 0. ) THEN
 #endif
           HS (JSEA) = 4. * SQRT ( ET(JSEA) )
-
 #ifdef W3_O9
         ELSE
           HS (JSEA) = - 4. * SQRT ( -ET(JSEA) )
@@ -2201,9 +2198,7 @@ CONTAINS
 #endif
 
 #ifdef W3_MPI
-  print*, "My rank is ",MYPROC," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM_WW3
   ! Should MPMD use the MPI rank indices adjusted for fortran?
-  !  print*, "My rank is ",MYPROC-1," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC-1," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM
 
   rank_offset = MyProc - IAPROC;
   if (rank_offset .eq. 0) then ! First program
@@ -2215,7 +2210,7 @@ CONTAINS
   end if
   
   ALLOCATE(X1(NX+1,NY))
-!  ALLOCATE(XY_SEND(NX*NY))
+
   if (MyProc-1 .eq. this_root) then
      if (rank_offset .eq. 0) then !  the first program
         CALL MPI_Send(NX, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
@@ -2280,38 +2275,10 @@ CONTAINS
      end if
   end if
   DEALLOCATE(X1)
-!  DEALLOCATE(XY_SEND)
 #else
   print*, "Not using MPI this run"
 #endif
 #endif
-    
-    ! MOVE LOOP HERE
-    OPEN(2120, file='output_HS.txt', status='unknown', access='append', action="write")
-
-    ! Write HS values to the new file
-    DO JSEA=1, NSEAL
-        CALL INIT_GET_ISEA(ISEA, JSEA)
-        IX     = MAPSF(ISEA,1)
-        IY     = MAPSF(ISEA,2)
-   
-        WRITE(2120, *) IAPROC, JSEA, ISEA, "(", IX, IY, ")", HS(ISEA)
-    END DO
-    CLOSE(2120)
-
-    ! 
-    OPEN(2121, file='output_LM.txt', status='replace', action="write")
-    ! Write LM values to the new file
-    DO JSEA=1, NSEAL
-        CALL INIT_GET_ISEA(ISEA, JSEA)
-        IX     = MAPSF(ISEA,1)
-        IY     = MAPSF(ISEA,2)
-
-        WRITE(2121, *) "(", IX, IY, ")", WLM(ISEA)
-    END DO
-    CLOSE(2121)
-
-
     !
     ! 4.  Peak frequencies and directions -------------------------------- *
     ! 4.a Initialize
@@ -2479,8 +2446,7 @@ CONTAINS
         WRITE (NDST,9054) ISEA, IX, IY, HS(JSEA), WLM(JSEA),   &
              T0M1(JSEA), RADE*THM(JSEA), THS(JSEA), FP0(JSEA),&
              THP0(JSEA)
-      END IF 
-    
+      END IF
     END DO
 #endif
     !
@@ -2604,7 +2570,6 @@ CONTAINS
     END IF
     
     !
-
     ! Dominant wave breaking probability
     !
     IF (FLOLOC(2, 17)) CALL CALC_WBT(A)
@@ -2962,7 +2927,6 @@ CONTAINS
       !
       ! Create TIMETAG for file name using YYYYMMDD.HHMMS prefix
       WRITE(TIMETAG,"(i8.8,'.'i6.6)")TIME(1),TIME(2)
-
 #ifdef W3_T
       WRITE (NDST,9001) FNMPRE(:J)//TIMETAG//'.out_grd.'//FILEXT(:I)
 #endif
@@ -3030,7 +2994,6 @@ CONTAINS
     !
     ! TIME and flags ----------------------------------------------------- *
     !
-
     IF ( WRITE ) THEN
       WRITE (NDSOG)                            TIME, FLOGRD
 #ifdef W3_ASCII

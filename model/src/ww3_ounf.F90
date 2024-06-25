@@ -1,3 +1,4 @@
+!> @file
 !> @brief Contains program for NetCDF grid output.
 !> @author F. Ardhuin
 !> @author M. Accensi
@@ -227,11 +228,9 @@ PROGRAM W3OUNF
        IFI, IFJ, NCTYPE, IX1, IXN, IY1, IYN, &
        IOUT, S3, IRET,                       &
        NBIPART, CNTIPART, NCVARTYPEI, IPART, &
-       RTDNX, RTDNY, i_count, j_count, HSFUNIT, LMFUNIT
+       RTDNX, RTDNY
   INTEGER                 :: TOUT(2), TDUM(2), TREF(2), TEPOCH(2), &
        STOPDATE(8), REFDATE(8)
-  !
-  CHARACTER(len=20) :: HSFNAME, LMFNAME
   !
   INTEGER, ALLOCATABLE    :: TABIPART(:), NCIDS(:,:,:)
   !
@@ -625,61 +624,6 @@ PROGRAM W3OUNF
 
     ! 5.1.1 Increments the time counter IOUT
     IOUT   = IOUT + 1
-    ! MY EDITS HERE
-
-    ! Writes the number of timesteps (IOUT)
-    IF (IOUT.EQ.1) THEN
-    OPEN(2125, file='timestepcount.txt', status='replace', action="write")
-    WRITE(2125, *) IOUT
-
-    ! OUTPUTS HS at first timestep
-    OPEN(2130, file='HStimestep01.txt', status='replace', action="write")
-    OPEN(2140, file='LMtimestep01.txt', status='replace', action='write')
-    DO j_count = 1, size(HS) 
-         WRITE(2130, '(f20.6, /)') HS(j_count)
-         WRITE(2140, '(f20.6, /)') WLM(j_count) 
-    END DO
-    CLOSE(2130)
-    CLOSE(2140)
-    
-
-    ! CHECK SIZE WLM (same as HS as expected)
-    ! OPEN(2140, file='LMinfo.txt', status='replace', action='write')
-    ! WRITE(2140, *) size(WLM), IXN, IYN
-    ! CLOSE(2140)
-
-    ! Write IOUT. to the new file
-    WRITE(2125, *) IOUT
-    CLOSE(2125)
-
-    ELSE
-        IF ((IOUT.GE.2) .AND. (IOUT.LE.4)) THEN
-           ! HS at subsequent timesteps in a new txt file
-           i_count = IOUT
-           WRITE(HSFNAME, '(A, I02.2,A)') 'HStimestep', i_count, '.txt'
-           WRITE(LMFNAME, '(A, I02.2,A)') 'LMtimestep', i_count, '.txt'
-           HSFUNIT = 2130 + i_count
-           LMFUNIT = 2140 + i_count
-           OPEN(HSFUNIT, file=HSFNAME, status='replace', action="write")
-           OPEN(LMFUNIT, file=LMFNAME, status='replace', action="write")
-
-           DO j_count = 1, size(HS)
-               WRITE(HSFUNIT, '(f20.6, /)')  HS(j_count)
-               WRITE(LMFUNIT, '(f20.6, /)')  WLM(j_count)
-           END DO
-           CLOSE(HSFUNIT)
-           CLOSE(LMFUNIT)
-
-        END IF
-
-        OPEN(2125, file='timestepcount.txt', position='append', action="write")
-        ! Write IOUT to the new file
-        WRITE(2125, *) IOUT
-        CLOSE(2125)
-
-    END IF
-    ! END MY EDITS
-
     CALL STME21 ( TOUT , IDTIME )
     WRITE (NDSO,971) IDTIME
 
@@ -1036,7 +980,7 @@ CONTAINS
          I1, J1, IPART, INDEXIPART, COORDTYPE
     INTEGER                 :: S1, S2, S4, S5, NCID, OLDNCID, NDSDAT,&
          NFIELD, N, IRET, IK, EXTRADIM, IVAR,  &
-         IVAR1, i_lon, j_lat
+         IVAR1
     INTEGER                 :: DIMID(6), VARID(300), START(4),       &
          COUNT(4), DIMLN(6),START1D(2),        &
          COUNT1D(2), DIMFIELD(3),              &
@@ -1364,12 +1308,10 @@ CONTAINS
           ELSE IF ( IFI .EQ. 2 .AND. IFJ .EQ. 1 ) THEN
             IF (NCVARTYPEI.EQ.3) NCVARTYPE=2
             CALL S2GRID(HS, X1)
-            !  PRINT *, HS
 
             ! Mean wave length
           ELSE IF ( IFI .EQ. 2 .AND. IFJ .EQ. 2 ) THEN
             CALL S2GRID(WLM, X1)
-            ! PRINT *, WLM
             !
             ! Mean period T02
           ELSE IF ( IFI .EQ. 2 .AND. IFJ .EQ. 3 ) THEN
@@ -2551,32 +2493,6 @@ CONTAINS
                 CALL CHECK_ERR(IRET)
               END IF
 #endif
-           ! MY EDITS
-           ! MOVE LOOP HERE
-           OPEN(2122, file='output_long.txt', status='replace', action="write")
-
-           ! Write lon. to the new file
-           ! TEMP_LON = NF90_PUT_VAR(NCID,VARID(1),LON(:))
-
-           WRITE(2122, *) LON(:)
-  
-           CLOSE(2122)
-           
-           OPEN(2123, file='output_lat.txt', status='replace', action="write")
-
-           ! Write lat. to the new file
-           WRITE(2123, *) LAT(:)
-
-           CLOSE(2123)
-
-           OPEN(2124, file='output_tuple.txt', status='replace', action="write")
-           DO j_lat = 1, size(LAT)
-              DO i_lon = 1, size(LON)
-                   WRITE(2124, *) "(", LON(i_lon), LAT(j_lat), ")"
-              END DO
-           END DO 
-
-           CLOSE(2124)
             END IF
 
             ! If curvilinear grid
@@ -2917,12 +2833,10 @@ CONTAINS
               ! Time in seconds
               OUTSECS = TSUBSEC(EPOCHDATE,CURDATE)
               IRET = NF90_PUT_VAR(NCID, VARID(3), OUTSECS, (/N/))
-                         
             ELSE
               ! Time in days
               OUTJULDAY = TSUB(EPOCHDATE,CURDATE)
               IRET = NF90_PUT_VAR(NCID, VARID(3), OUTJULDAY, (/N/))
-              
             ENDIF
             CALL CHECK_ERR(IRET)
 

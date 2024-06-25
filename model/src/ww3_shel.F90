@@ -310,12 +310,8 @@ PROGRAM W3SHEL
   USE OMP_LIB
 #endif
 
-!#ifdef W3_MPI
-!  USE MPI, ONLY: MPI_COMM_WORLD
-!#endif
   USE MPICOMM
 
-  !
   IMPLICIT NONE
   !
 #ifdef W3_MPI
@@ -594,38 +590,6 @@ PROGRAM W3SHEL
   CALL MPI_COMM_RANK ( MPI_COMM, IAPROC, IERR_MPI )
   IAPROC = IAPROC + 1
 #endif
-
-#ifdef W3_MPMD
-!  IAPROC = IAPROC - 1
-!  MYPROC = MYPROC - 1
-#ifdef W3_MPI
-  print*, "My rank is ",MYPROC," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM
-  ! Should MPMD use the MPI rank indices adjusted for fortran?
-  !  print*, "My rank is ",MYPROC-1," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC-1," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM
-#if 0
-  this_nboxes=10
-  rank_offset = MyProc - IAPROC;
-  if (rank_offset .eq. 0) then ! First program
-     this_root = 0
-     other_root = NAPROC
-  else
-     this_root = rank_offset
-     other_root = 0
-  end if
-
-  if (MyProc-1 .eq. this_root) then
-     if (rank_offset .eq. 0) then !  the first program
-        CALL MPI_Send(this_nboxes, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
-     else ! the second program
-        CALL MPI_Send(this_nboxes, 1, MPI_INT, other_root, 1, MPI_COMM_WORLD, IERR_MPI)
-     end if
-  end if
-#endif
-#else
-  print*, "Not using MPI this run"
-#endif
-#endif
-
   memunit = 740+IAPROC
   !
 #ifdef W3_NCO
@@ -690,13 +654,8 @@ PROGRAM W3SHEL
   NDSF(9)  = 20
 #endif
   !
-#if 0
-  NAPOUT = 0
-  NAPERR = 0
-#else
   NAPOUT = 1
   NAPERR = 1
-#endif
   !
 #ifdef W3_COU
   OFILE  = 'output.ww3'
@@ -1326,7 +1285,7 @@ PROGRAM W3SHEL
   END IF ! FLGNML
 
 
-print*, FLGNML, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+
   !
   ! process old ww3_shel.inp format
   !
@@ -1813,6 +1772,7 @@ print*, FLGNML, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   ! 2.1 input fields
 
   ! 2.1.a Opening field and data files
+
   IF ( IAPROC .EQ. NAPOUT ) WRITE (NDSO,950)
   IF ( FLFLG ) THEN
     IF ( IAPROC .EQ. NAPOUT ) WRITE (NDSO,951)                  &
@@ -2045,7 +2005,6 @@ print*, FLGNML, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   CALL W3INIT ( 1, .FALSE., 'ww3', NDS, NTRACE, ODAT, FLGRD, FLGR2, FLGD,    &
        FLG2, NPTS, X, Y, PNAMES, IPRT, PRTFRM, MPI_COMM,   &
        FLAGSTIDEIN=FLAGSTIDE )
-
   !
   !      IF (MINVAL(VA) .LT. 0.) THEN
   !        WRITE(740+IAPROC,*) 'NEGATIVE ACTION SHELL 5', MINVAL(VA)
@@ -2862,6 +2821,7 @@ print*, FLGNML, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 #ifdef W3_MPI
 #ifdef W3_MPMD
 #if 0
+! Test signaling to that WW3 has finished by sending MPI message
      END_FLAG=-1
      if (MyProc-1 .eq. this_root) then
         if (rank_offset .eq. 0) then !  the first program

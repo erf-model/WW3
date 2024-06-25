@@ -1189,7 +1189,7 @@ CONTAINS
       READ (MDSI,*,END=2001,ERR=2002) STMPT, ETMPT
     ELSE
       READ (MDSI,*,END=2001,ERR=2002) STIME, ETIME
-   END IF
+    END IF
     !
     CALL STME21 ( STIME , DTME21 )
     IF ( MDSS.NE.MDSO .AND. NMPSCR.EQ.IMPROC ) WRITE (MDSS,941) DTME21
@@ -5369,9 +5369,6 @@ CONTAINS
     !
     ! 8.  Actual initializations ----------------------------------------- /
     !
-
-    
-    
 #ifdef W3_MPRF
     CALL PRTIME ( PRFTN )
     WRITE (MDSP,990) PRFT0, PRFTN, get_memory(), 'START Sec. 8'
