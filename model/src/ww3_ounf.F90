@@ -626,79 +626,16 @@ PROGRAM W3OUNF
 
     ! 5.1.1 Increments the time counter IOUT
     IOUT   = IOUT + 1
-    ! MY EDITS HERE
 
-    ! Writes the number of timesteps (IOUT)
-    IF (IOUT.EQ.1) THEN
-    OPEN(2125, file='timestepcount.txt', status='replace', action="write")
-    WRITE(2125, *) IOUT
 
-    ! OUTPUTS HS at first timestep
-    OPEN(2130, file='HStimestep01.txt', status='replace', action="write")
-    OPEN(2140, file='LMtimestep01.txt', status='replace', action='write')
-    DO j_count = 1, size(HS) 
-         WRITE(2130, '(f20.6, /)') HS(j_count)
-         WRITE(2140, '(f20.6, /)') WLM(j_count) 
-    END DO
-    CLOSE(2130)
-    CLOSE(2140)
     
 
-    ! CHECK SIZE WLM (same as HS as expected)
-    ! OPEN(2140, file='LMinfo.txt', status='replace', action='write')
-    ! WRITE(2140, *) size(WLM), IXN, IYN
-    ! CLOSE(2140)
-
-    ! Write IOUT. to the new file
-    WRITE(2125, *) IOUT
-    CLOSE(2125)
-
-    ELSE
-        IF ((IOUT.GE.2) .AND. (IOUT.LE.4)) THEN
-           ! HS at subsequent timesteps in a new txt file
-           i_count = IOUT
-           WRITE(HSFNAME, '(A, I02.2,A)') 'HStimestep', i_count, '.txt'
-           WRITE(LMFNAME, '(A, I02.2,A)') 'LMtimestep', i_count, '.txt'
-           HSFUNIT = 2130 + i_count
-           LMFUNIT = 2140 + i_count
-           OPEN(HSFUNIT, file=HSFNAME, status='replace', action="write")
-           OPEN(LMFUNIT, file=LMFNAME, status='replace', action="write")
-
-           DO j_count = 1, size(HS)
-               WRITE(HSFUNIT, '(f20.6, /)')  HS(j_count)
-               WRITE(LMFUNIT, '(f20.6, /)')  WLM(j_count)
-           END DO
-           CLOSE(HSFUNIT)
-           CLOSE(LMFUNIT)
-
-        END IF
-
-        OPEN(2125, file='timestepcount.txt', position='append', action="write")
-        ! Write IOUT to the new file
-        WRITE(2125, *) IOUT
-        CLOSE(2125)
-
-    END IF
-    ! END MY EDITS
 
 
-    ! MY EDITS HERE
-    OPEN(3121, file='output_WND.txt', status='replace', action="write")
-    ! Write (IX,IY) : (x-velocity, y-velocity) values to the new file
-    DO JSEA=1, NSEAL
-        ! CALL INIT_GET_ISEA(ISEA, JSEA)
-        !IX     = MAPSF(ISEA,1)
-        !IY     = MAPSF(ISEA,2)
 
-        TU10  = U10(JSEA)                    ! wind velocity U10
-        TUDIR = U10D(JSEA)                   ! wind direction φ (rad)
-       !  SINU  = SIN(TUDIR)                   ! sinφ
-       !  COSU  = COS(TUDIR)                   ! cosφ
 
-        WRITE(3121, *) "(x_vel, y_vel) = ", "(",COS(TUDIR), SIN(TUDIR),") ", "Wind Vel = ", TU10
-      !  PRINT*, "(", IX, IY, ")", "(x_vel, y_vel) = ", "("COSU, SINU") ", "Wind Vel = ", TU10
-    END DO
-    CLOSE(3121)
+
+
 
     CALL STME21 ( TOUT , IDTIME )
     WRITE (NDSO,971) IDTIME

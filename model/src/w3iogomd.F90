@@ -2294,21 +2294,7 @@ COMMENT = 0
      end if
   end if
 
-! MY EDITS HERE
-! CHECK XY_SYNCH_SEND, SYNCH_GLOBAL_ARRAY
-    OPEN(5120, file='printmpi.txt', status='unknown', access='append', action="write")
-
-    ! Write HS values to the new file
-    DO JSEA=1, NSEAL
-        CALL INIT_GET_ISEA(ISEA, JSEA)
-        IX     = MAPSF(ISEA,1)
-        IY     = MAPSF(ISEA,2)
-
-        WRITE(5120, *) SIZE(XY_SEND), XY_SEND(ISEA), SIZE(XY_SYNCH_SEND), XY_SYNCH_SEND(ISEA)
-    END DO
-    CLOSE(5120)
   DEALLOCATE(X1)
-<<<<<<< HEAD
 !  DEALLOCATE(XY_SEND)
 ! end if
 
@@ -2333,81 +2319,15 @@ COMMENT = 0
         call MPI_RECV(theta_values, n_elements, MPI_DOUBLE, other_root, 15, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI)
      end if
   end if
-
-
-    print*, "Now I am receiving from ERF"! MPI RECEIVE TEST
-    ! Allocate arrays
-    !allocate(magnitude_values(n_elements))
-    !allocate(theta_values(n_elements))
-    ! Receive magnitude array
-    !call MPI_RECV(magnitude_values, n_elements, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD, IERR_MPI)
-
-    ! Receive theta array
-    !call MPI_RECV(theta_values, n_elements, MPI_DOUBLE, 0, 4, MPI_COMM_WORLD, IERR_MPI)
-    ! Print received values to a txt file
-    open(unit=6123, file='mpi_recv.txt', status='unknown', access='append', action="write")
-     DO JSEA=1, NSEAL
-         CALL INIT_GET_ISEA(ISEA, JSEA)
-         IX     = MAPSF(ISEA,1)
-         IY     = MAPSF(ISEA,2)
-         ! Need correct mapping of magnitude_values and theta_values
-         COUNTER = IX + (IY-1) * NX 
-         WRITE(6123, *) "(", IX, IY, ")", ISEA, COUNTER, size(magnitude_values), magnitude_values(COUNTER), size(theta_values), theta_values(COUNTER), IERR_MPI
-     END DO
-    ! write(6123,*) 'Magnitude Values:', magnitude_values, 'Theta Values:', theta_values
-    close(6123)
+#endif
+#endif
 
 ! end if
 
-    !
     
-    ! MOVE LOOP HERE
-    OPEN(2120, file='output_HS.txt', status='unknown', access='append', action="write")
-
-    ! Write HS values to the new file
-    DO JSEA=1, NSEAL
-        CALL INIT_GET_ISEA(ISEA, JSEA)
-        IX     = MAPSF(ISEA,1)
-        IY     = MAPSF(ISEA,2)
-   
-        WRITE(2120, *) IAPROC, JSEA, ISEA, "(", IX, IY, ")", HS(ISEA)
-    END DO
-    CLOSE(2120)
-
-    ! 
-    OPEN(2121, file='output_LM.txt', status='replace', action="write")
-    ! Write LM values to the new file
-    DO JSEA=1, NSEAL
-        CALL INIT_GET_ISEA(ISEA, JSEA)
-        IX     = MAPSF(ISEA,1)
-        IY     = MAPSF(ISEA,2)
-
-        WRITE(2121, *) "(", IX, IY, ")", WLM(ISEA)
-    END DO
-    CLOSE(2121)
-
-    ! MY EDITS HERE
-    OPEN(3121, file='output_WND.txt', status='replace', action="write")
-    ! Write (IX,IY) : (x-velocity, y-velocity) values to the new file
-    DO JSEA=1, NSEAL
-        CALL INIT_GET_ISEA(ISEA, JSEA)
-        IX     = MAPSF(ISEA,1)
-        IY     = MAPSF(ISEA,2)
-
-        TU10  = U10(ISEA)                    ! wind velocity U10
-        TUDIR = U10D(ISEA)                   ! wind direction φ (rad)
-        SINU  = SIN(TUDIR)                   ! sinφ
-        COSU  = COS(TUDIR)                   ! cosφ
-
-        ! WRITE(3121, *) "(", IX, IY, ")", "(x_vel, y_vel) = ", "(", COSU, SINU, ") ", "Wind Vel = ", TU10
-
-         WRITE(3121, *) "(", IX, IY, ")", "(x_vel, y_vel) = ", "(", COS(U10D(JSEA)), SIN(U10D(JSEA)), ") ", "Wind Vel = ", U10(JSEA)
-        ! PRINT*, "(", IX, IY, ")", "(x_vel, y_vel) = ", "("COSU, SINU") ", "Wind Vel = ", TU10   
-    END DO
-    CLOSE(3121)
 
 
->>>>>>> mpmd_debug
+
     ! 4.  Peak frequencies and directions -------------------------------- *
     ! 4.a Initialize
     !
@@ -4991,23 +4911,6 @@ COMMENT = 0
     ENDDO ! JSEA
 
 
-    ! MY EDITS HERE
-    OPEN(3121, file='output_WND.txt', status='replace', action="write")
-    ! Write (IX,IY) : (x-velocity, y-velocity) values to the new file
-    DO JSEA=1, NSEAL
-        CALL INIT_GET_ISEA(ISEA, JSEA)
-        IX     = MAPSF(ISEA,1)
-        IY     = MAPSF(ISEA,2)
-
-        TU10  = U10(ISEA)                    ! wind velocity U10
-        TUDIR = U10D(ISEA)                   ! wind direction φ (rad)
-        SINU  = SIN(TUDIR)                   ! sinφ
-        COSU  = COS(TUDIR)                   ! cosφ
-
-        WRITE(3121, *) "(", IX, IY, ")", "(x_vel, y_vel) = ", "(", COSU, SINU, ") ", "Wind Vel = ", TU10
-        ! PRINT*, "(", IX, IY, ")", "(x_vel, y_vel) = ", "("COSU, SINU") ", "Wind Vel = ", TU10   
-    END DO
-    CLOSE(3121)
 
 
     !/
