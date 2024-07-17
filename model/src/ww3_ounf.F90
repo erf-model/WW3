@@ -159,7 +159,7 @@ PROGRAM W3OUNF
 
   !/
   USE W3WDATMD, ONLY: W3NDAT, W3SETW
-  USE W3ADATMD, ONLY: W3NAUX, W3SETA
+  USE W3ADATMD, ONLY: W3NAUX, W3SETA, U10, U10D, WBT
   USE W3ODATMD, ONLY: W3NOUT, W3SETO
   USE W3SERVMD, ONLY : ITRACE, NEXTLN, EXTCDE, STR_TO_UPPER
 #ifdef W3_S
@@ -252,6 +252,8 @@ PROGRAM W3OUNF
 #ifdef W3_RTD
   LOGICAL                 :: RTDL = .FALSE.
 #endif
+  INTEGER :: ISEA, JSEA
+  REAL :: TU10, TUDIR
 
   INTEGER                 :: TVARTYPE = NF90_DOUBLE
   CHARACTER(LEN=32)       :: EPOCH_ISO
@@ -679,6 +681,25 @@ PROGRAM W3OUNF
 
     END IF
     ! END MY EDITS
+
+
+    ! MY EDITS HERE
+    OPEN(3121, file='output_WND.txt', status='replace', action="write")
+    ! Write (IX,IY) : (x-velocity, y-velocity) values to the new file
+    DO JSEA=1, NSEAL
+        ! CALL INIT_GET_ISEA(ISEA, JSEA)
+        !IX     = MAPSF(ISEA,1)
+        !IY     = MAPSF(ISEA,2)
+
+        TU10  = U10(JSEA)                    ! wind velocity U10
+        TUDIR = U10D(JSEA)                   ! wind direction φ (rad)
+       !  SINU  = SIN(TUDIR)                   ! sinφ
+       !  COSU  = COS(TUDIR)                   ! cosφ
+
+        WRITE(3121, *) "(x_vel, y_vel) = ", "(",COS(TUDIR), SIN(TUDIR),") ", "Wind Vel = ", TU10
+      !  PRINT*, "(", IX, IY, ")", "(x_vel, y_vel) = ", "("COSU, SINU") ", "Wind Vel = ", TU10
+    END DO
+    CLOSE(3121)
 
     CALL STME21 ( TOUT , IDTIME )
     WRITE (NDSO,971) IDTIME

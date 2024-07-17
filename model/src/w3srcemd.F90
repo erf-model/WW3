@@ -682,7 +682,7 @@ CONTAINS
     !/ Local parameters
     !/
     INTEGER :: IK, ITH, IS, IS0, NSTEPS, NKH, NKH1, &
-         IKS1, IS1, NSPECH, IDT, IERR, ISP
+         IKS1, IS1, NSPECH, IDT, IERR, ISP, COUNTER
     REAL :: DTTOT, FHIGH, DT, AFILT, DAMAX, AFAC, &
          HDT, ZWND, FP, DEPTH, TAUSCX, TAUSCY, FHIGI
     ! Scaling factor for SIN, SDS, SNL
@@ -1094,7 +1094,15 @@ CONTAINS
     TWS = 1./FMEANWS
 #endif
 #ifdef W3_ST6
+
     CALL W3SPR6 (SPEC, CG1, WN1, EMEAN, FMEAN, WNMEAN, AMAX, FP)
+
+! MY EDITS HERE
+    ! open(unit=8123, file='sourceterm.txt', status='unknown', access='append', action="write")
+         print*, " This is the first ifdef for W3_ST6 in w3srce.md "
+    ! WRITE(8123, *) "This is the first ifdef for W3_ST6 in w3srce.md"
+    ! close(8123)
+
 #endif
     !
     ! 1.c2 Stores the initial data
@@ -1842,6 +1850,24 @@ CONTAINS
 #endif
       !
 #ifdef W3_ST6
+
+    
+    ! MY EDITS HERE
+    COUNTER = 1
+    print*, " Source terms HERE "    
+    IF (COUNTER.EQ.1) THEN
+        OPEN(4121, file='output_SRC.txt', status='replace', action="write")
+        WRITE(4121, *) U10DIR, "(x_vel, y_vel) = ", "(", COS(U10DIR), SIN(U10DIR), ") ", "Wind Vel = ", U10ABS
+
+    ELSE
+
+        WRITE(4121, *) U10DIR, "(x_vel, y_vel) = ", "(", COS(U10DIR), SIN(U10DIR), ") ", "Wind Vel = ", U10ABS
+    ENDIF
+
+    CLOSE(4121)
+    COUNTER = COUNTER + 1
+
+
       IF (FXFM .LE. 0) THEN
         FHIGH = SIG(NK)
       ELSE
