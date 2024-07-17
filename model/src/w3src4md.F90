@@ -1961,6 +1961,8 @@ CONTAINS
         ZZ00 = CHATH*TAUOLD/GRAV
         IF (ZZ0MAX.NE.0) ZZ00=MIN(ZZ00,ZZ0MAX)
         ! Corrects roughness ZZ00 for quasi-linear effect
+        ! MY COMMENTS HERE
+        ! Surface roughness fixed point iteration
         ZZ0 = ZZ00/(1.-X)**XM
         ZNU = 0.11*nu_air/MAX(UST,1E-6)
         ZZ0 = SINTAILPAR(5)*ZNU+ZZ0
