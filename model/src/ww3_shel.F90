@@ -309,9 +309,9 @@ PROGRAM W3SHEL
 #ifdef W3_OMPG
   USE OMP_LIB
 #endif
-
+#ifdef W3_MPI
   USE MPICOMM
-
+#endif
   IMPLICIT NONE
   !
 #ifdef W3_MPI
@@ -498,6 +498,8 @@ PROGRAM W3SHEL
 #endif
 
 #ifdef W3_MPI
+    MPI_COMM_WW3=MPI_COMM_WORLD !< MPI_COMM_WW3
+
     MPI_COMM = MPI_COMM_WW3
 #endif
 #ifdef W3_OASIS
@@ -575,7 +577,6 @@ PROGRAM W3SHEL
     end if
     CALL MPI_Comm_split(MPI_COMM_WORLD, appnum, myproc, MPI_COMM_WW3, IERR_MPI)
 #endif
-  IS_EXTERNAL_COMPONENT = .TRUE.
 
 #ifdef W3_MPI
     MPI_COMM = MPI_COMM_WW3
@@ -1285,7 +1286,7 @@ PROGRAM W3SHEL
   END IF ! FLGNML
 
 
-
+print*, FLGNML, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   !
   ! process old ww3_shel.inp format
   !
@@ -1772,7 +1773,6 @@ PROGRAM W3SHEL
   ! 2.1 input fields
 
   ! 2.1.a Opening field and data files
-
   IF ( IAPROC .EQ. NAPOUT ) WRITE (NDSO,950)
   IF ( FLFLG ) THEN
     IF ( IAPROC .EQ. NAPOUT ) WRITE (NDSO,951)                  &
@@ -2005,6 +2005,7 @@ PROGRAM W3SHEL
   CALL W3INIT ( 1, .FALSE., 'ww3', NDS, NTRACE, ODAT, FLGRD, FLGR2, FLGD,    &
        FLG2, NPTS, X, Y, PNAMES, IPRT, PRTFRM, MPI_COMM,   &
        FLAGSTIDEIN=FLAGSTIDE )
+
   !
   !      IF (MINVAL(VA) .LT. 0.) THEN
   !        WRITE(740+IAPROC,*) 'NEGATIVE ACTION SHELL 5', MINVAL(VA)
@@ -2821,7 +2822,6 @@ PROGRAM W3SHEL
 #ifdef W3_MPI
 #ifdef W3_MPMD
 #if 0
-! Test signaling to that WW3 has finished by sending MPI message
      END_FLAG=-1
      if (MyProc-1 .eq. this_root) then
         if (rank_offset .eq. 0) then !  the first program

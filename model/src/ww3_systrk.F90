@@ -172,6 +172,8 @@ PROGRAM WW3_SYSTRK
   !     Start of parallel region
   CALL MPI_INIT(ierr)
 
+  MPI_COMM_WW3=MPI_COMM_WORLD !< MPI_COMM_WW3
+
   CALL MPI_COMM_RANK(MPI_COMM_WW3, rank, ierr)
   CALL MPI_COMM_SIZE(MPI_COMM_WW3, nproc, ierr)
 

@@ -1552,12 +1552,12 @@ then
 	halfnproc=$(($nproc / 2))
 	echo "Consider setting up environment to put other executable in $path_w or $path_w/toy_model"
 	echo "Use $halfnproc MPI Ranks for both of them"
-	path_mpmd_e=~/codes/ERF/Exec/ABL/ERF3d.gnu.TEST.TPROF.MPI.ex
-	path_mpmd_i=~/codes/ERF/Exec/ABL/inputs_mpmd
+	path_mpmd_e=~/codes/ERF/Exec/DevTests/ABL_with_WW3/ERF3d.gnu.DEBUG.MPI.ex
+	path_mpmd_i=~/codes/ERF/Exec/DevTests/ABL_with_WW3/inputs_mpmd
         echo "Currently hardcoding executable and input file to $path_mpmd_e $path_mpmd_i , if this is not found assume submodule"
-	if ! [ -f $path_mpmd_i]; then
-	    path_mpmd_e=$ww3_dir/../../Exec/ABL/ERF3d.gnu.TEST.TPROF.MPI.ex
-	    path_mpmd_i=$ww3_dir/../../Exec/ABL/inputs_mpmd
+	if ! [ -f $path_mpmd_i ]; then
+	    path_mpmd_e=$ww3_dir/../../Exec/DevTests/ABL_with_WW3/ERF3d.gnu.DEBUG.MPI.ex
+	    path_mpmd_i=$ww3_dir/../../Exec/DevTests/ABL_with_WW3/inputs_mpmd
 	fi
 	mkdir $path_w/MPMD
         cp $path_mpmd_e $path_w/MPMD
