@@ -46,7 +46,7 @@ fi
 #convert main_dir to absolute path
 main_dir="`cd $main_dir 1>/dev/null 2>&1 && pwd`"
 
-  cmplr=datarmor_intel
+  cmplr=datarmor_intel_debug
 
 
 
