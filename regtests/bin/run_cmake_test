@@ -1552,13 +1552,13 @@ then
 	halfnproc=$(($nproc / 2))
 	echo "put other executable in $path_w or $path_w/toy_model"
 	echo "Use $halfnproc for both of them"
-        echo "hardcoding executable and input file for now to ~/codes/ERF/Exec/ABL/ERF3d.gnu.TEST.TPROF.MPI.ex ~/codes/ERF/Exec/ABL/inputs_mpmd"
+        echo "hardcoding executable and input file for now to ~/codes/ERF/Exec/DevTests/ABL_with_WW3/ERF3d.gnu.DEBUG.MPI.ex ~/codes/ERF/Exec/DevTests/inputs_mpmd"
 #	echo "$runcmd $halfnproc ~/codes/amrex-tutorials/ExampleCodes/MPMD/Case-0/Source_1/main3d.gnu.DEBUG.MPI.ex : -np $halfnproc ~/codes/amrex-tutorials/ExampleCodes/MPMD/Case-0/Source_2/main3d.gnu.DEBUG.MPI.ex | tee $ofile"
       if [ $runcmd = "srun" ]
       then
           errmsg "Error occured during $path_e/$prog execution"
           exit 1
-      elif $runcmd -np $halfnproc $path_e/$prgb : -np $halfnproc ~/codes/ERF/Exec/ABL/ERF3d.gnu.TEST.TPROF.MPI.ex ~/codes/ERF/Exec/ABL/inputs_mpmd | tee $ofile
+      elif $runcmd -np $halfnproc $path_e/$prgb : -np $halfnproc ~/codes/ERF/Exec/DevTests/ABL_with_WW3/ERF3d.gnu.DEBUG.MPI.ex ~/codes/ERF/Exec/DevTests/inputs_mpmd | tee $ofile
       then
         \rm -f track_i.ww3
         \rm -f $prog.inp
