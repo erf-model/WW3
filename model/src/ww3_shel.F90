@@ -577,7 +577,6 @@ PROGRAM W3SHEL
     end if
     CALL MPI_Comm_split(MPI_COMM_WORLD, appnum, myproc, MPI_COMM_WW3, IERR_MPI)
 #endif
-  IS_EXTERNAL_COMPONENT = .TRUE.
 
 #ifdef W3_MPI
     MPI_COMM = MPI_COMM_WW3
