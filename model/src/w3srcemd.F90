@@ -1099,7 +1099,6 @@ CONTAINS
 
 ! MY EDITS HERE
     ! open(unit=8123, file='sourceterm.txt', status='unknown', access='append', action="write")
-         print*, " This is the first ifdef for W3_ST6 in w3srce.md "
     ! WRITE(8123, *) "This is the first ifdef for W3_ST6 in w3srce.md"
     ! close(8123)
 
@@ -1854,7 +1853,6 @@ CONTAINS
     
     ! MY EDITS HERE
     COUNTER = 1
-    print*, " Source terms HERE "    
     IF (COUNTER.EQ.1) THEN
         OPEN(4121, file='output_SRC.txt', status='replace', action="write")
         WRITE(4121, *) U10DIR, "(x_vel, y_vel) = ", "(", COS(U10DIR), SIN(U10DIR), ") ", "Wind Vel = ", U10ABS

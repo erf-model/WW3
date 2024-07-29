@@ -2349,14 +2349,14 @@ COMMENT = 0
     ! Receive theta array
     !call MPI_RECV(theta_values, n_elements, MPI_DOUBLE, 0, 4, MPI_COMM_WORLD, IERR_MPI)
     ! Print received values to a txt file
-    open(unit=6123, file='mpi_recv.txt', status='unknown', access='append', action="write")
+    open(unit=6123, file='ww3_mpi_recv.txt', status='unknown', access='append', action="write")
      DO JSEA=1, NSEAL
          CALL INIT_GET_ISEA(ISEA, JSEA)
          IX     = MAPSF(ISEA,1)
          IY     = MAPSF(ISEA,2)
          ! Need correct mapping of magnitude_values and theta_values
          COUNTER = IX + (IY-1) * NX 
-         WRITE(6123, *) "(", IX, IY, ")", ISEA, COUNTER, size(magnitude_values), magnitude_values(COUNTER), size(theta_values), theta_values(COUNTER), IERR_MPI
+         WRITE(6123, *) "(", IX, IY, ")", ISEA, JSEA, COUNTER, size(magnitude_values), magnitude_values(ISEA), size(theta_values), theta_values(ISEA), IERR_MPI
      END DO
     ! write(6123,*) 'Magnitude Values:', magnitude_values, 'Theta Values:', theta_values
     close(6123)
