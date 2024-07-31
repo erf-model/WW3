@@ -152,6 +152,10 @@ MODULE W3IOGOMD
   !/
   PUBLIC
   CHARACTER(LEN=1024)                   :: FLDOUT
+! MY EDITS
+  PUBLIC :: mag_values, th_values
+  REAL(8), allocatable :: mag_values(:)
+  REAL(8), allocatable :: th_values(:)
   !/
   !/ Private parameter statements (ID strings)
   !/
@@ -1441,8 +1445,8 @@ CONTAINS
 
 ! MY EDITS
   INTEGER :: n_elements
-  REAL(8), allocatable :: magnitude_values(:)
-  REAL(8), allocatable :: theta_values(:)
+   REAL(8), allocatable :: magnitude_values(:)
+   REAL(8), allocatable :: theta_values(:)
 
 #ifdef W3_PDLIB
   REAL(rkind)         :: XY_SEND(NX*NY)
@@ -2199,7 +2203,9 @@ CONTAINS
       END IF
     END DO
 #endif
+
     ! MY EDITS
+    ! ------------ BEGIN SEND AND RECEIVE FROM ERF ------------------------*
 
 #ifdef W3_MPMD
 
@@ -2226,7 +2232,7 @@ CONTAINS
   end if
  
 ! Uncomment if statement if we only want to receive from ERF
-COMMENT = 0
+COMMENT = 2
 
 ! if (COMMENT .eq. 1) then
  
@@ -2314,14 +2320,27 @@ COMMENT = 0
     CLOSE(5120)
   DEALLOCATE(X1)
 !  DEALLOCATE(XY_SEND)
-! end if
+! Uncomment to turn off send:
+!end if
 
-! if (COMMENT .eq. 0) then
-
+! Uncomment to turn off receive:
+if (COMMENT .eq. 0) then
+PRINT *, "ABOUT TO RECEIVE FROM ERF"
   if (MyProc-1 .eq. this_root) then
      if (rank_offset .eq. 0) then !  the first program
 
         CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 10, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI );
+       
+        if (allocated(mag_values)) then
+           deallocate(mag_values)
+           !allocate(mag_values(n_elements))
+        end if
+
+        if (allocated(th_values)) then
+          deallocate(th_values)
+          !allocate(th_values(n_elements))
+        end if
+
         allocate(magnitude_values(n_elements))
         allocate(theta_values(n_elements))
 
@@ -2330,16 +2349,28 @@ COMMENT = 0
      else ! the second program
 
         CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 11, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI );
+        if (allocated(mag_values)) then
+          deallocate(mag_values)
+          !allocate(mag_values(n_elements))
+        end if
+
+        if (allocated(th_values)) then
+          deallocate(th_values)
+          !allocate(th_values(n_elements))
+        end if
+ 
         allocate(magnitude_values(n_elements))
         allocate(theta_values(n_elements))
-
+        
         call MPI_RECV(magnitude_values, n_elements, MPI_DOUBLE, other_root, 13, MPI_COMM_WORLD,MPI_STATUS_IGNORE, IERR_MPI)
         call MPI_RECV(theta_values, n_elements, MPI_DOUBLE, other_root, 15, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI)
      end if
   end if
 
+        allocate(mag_values(n_elements))
+        allocate(th_values(n_elements))
 
-    print*, "Now I am receiving from ERF"! MPI RECEIVE TEST
+    print*, "JUST RECEIVED AND ALLOCATED MAG_VALUES(n-elements)"! MPI RECEIVE TEST
     ! Allocate arrays
     !allocate(magnitude_values(n_elements))
     !allocate(theta_values(n_elements))
@@ -2355,19 +2386,25 @@ COMMENT = 0
          IX     = MAPSF(ISEA,1)
          IY     = MAPSF(ISEA,2)
          ! Need correct mapping of magnitude_values and theta_values
-         COUNTER = IX + (IY-1) * NX 
-         WRITE(6123, *) "(", IX, IY, ")", ISEA, JSEA, COUNTER, size(magnitude_values), magnitude_values(ISEA), size(theta_values), theta_values(ISEA), IERR_MPI
+         COUNTER = IX + (IY-1) * NX
+         
+         mag_values(ISEA) = magnitude_values(ISEA)
+         th_values(ISEA) = theta_values(ISEA)
+
+         WRITE(6123, *) "(", IX, IY, ")", n_elements, size(mag_values), ISEA, JSEA, COUNTER, size(magnitude_values), magnitude_values(ISEA), mag_values(ISEA), size(theta_values), theta_values(ISEA), IERR_MPI
      END DO
     ! write(6123,*) 'Magnitude Values:', magnitude_values, 'Theta Values:', theta_values
     close(6123)
-
-! end if
+Print*, "just copied into mag_values" 
+! Uncomment to turn off receive:
+end if
 
 #else
   print*, "Not using MPI this run"
 #endif
 #endif
-    
+
+
     ! MOVE LOOP HERE
     OPEN(2120, file='output_HS.txt', status='unknown', access='append', action="write")
 
@@ -2412,7 +2449,7 @@ COMMENT = 0
         ! PRINT*, "(", IX, IY, ")", "(x_vel, y_vel) = ", "("COSU, SINU") ", "Wind Vel = ", TU10   
     END DO
     CLOSE(3121)
-
+! ----------- END OF SEND AND RECEIVE FROM ERF ---------------------------*
 
     ! 4.  Peak frequencies and directions -------------------------------- *
     ! 4.a Initialize
@@ -2727,6 +2764,8 @@ COMMENT = 0
     !/ End of W3OUTG ----------------------------------------------------- /
     !/
   END SUBROUTINE W3OUTG
+
+  
   !/ ------------------------------------------------------------------- /
   !/
   !>
