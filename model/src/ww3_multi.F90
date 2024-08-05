@@ -96,7 +96,7 @@ PROGRAM W3MLTI
 #endif
   !/
 #ifdef W3_MPI
-  USE MPICOMM
+  USE MPICOMM, ONLY: MPI_COMM_WW3
 #endif
   !
   IMPLICIT NONE

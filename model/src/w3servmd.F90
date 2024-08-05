@@ -80,7 +80,7 @@ MODULE W3SERVMD
 
   ! module default
 #ifdef W3_MPI
-  USE MPICOMM
+  USE MPICOMM, ONLY: MPI_COMM_WW3
 #endif
   !
   implicit none
