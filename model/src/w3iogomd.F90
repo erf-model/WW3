@@ -2230,11 +2230,16 @@ CONTAINS
      this_root = rank_offset
      other_root = 0
   end if
- 
-! Uncomment if statement if we only want to receive from ERF
-COMMENT = 2
 
-! if (COMMENT .eq. 1) then
+! TESTING FUNCTION WW3_SEND_TO_ERF()
+
+CALL WW3_SEND_TO_ERF()
+! CALL WW3_RECEIVE_FROM_ERF()
+
+! Uncomment if statement if we only want to receive from ERF
+COMMENT = 0
+
+ if (COMMENT .eq. 1) then
  
   ALLOCATE(X1(NX+1,NY))
 !  ALLOCATE(XY_SEND(NX*NY))
@@ -2321,10 +2326,11 @@ COMMENT = 2
   DEALLOCATE(X1)
 !  DEALLOCATE(XY_SEND)
 ! Uncomment to turn off send:
-!end if
+end if
 
 ! Uncomment to turn off receive:
 if (COMMENT .eq. 0) then
+
 PRINT *, "ABOUT TO RECEIVE FROM ERF"
   if (MyProc-1 .eq. this_root) then
      if (rank_offset .eq. 0) then !  the first program

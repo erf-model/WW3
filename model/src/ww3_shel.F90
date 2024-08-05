@@ -252,10 +252,18 @@ PROGRAM W3SHEL
   !/ ------------------------------------------------------------------- /
 
   use w3servmd, only : print_memcheck
+
+! MY EDITS HERE
+  USE W3ADATMD, ONLY: HS_MPI => HS, WLM
+  USE CONSTANTS, ONLY: UNDEF
+  USE W3PARALL, ONLY : INIT_GET_ISEA, SYNCHRONIZE_GLOBAL_ARRAY
 #ifdef W3_PDLIB
   USE CONSTANTS, ONLY: LPDLIB
 #endif
   USE W3GDATMD
+  ! MY EDITS HERE
+  ! USE W3GDATMD, ONLY: NX, NY, NSEA
+
   USE W3WDATMD, ONLY: TIME, VA, W3NDAT, W3DIMW, W3SETW
 #ifdef W3_OASIS
   USE W3WDATMD, ONLY: TIME00, TIMEEND
@@ -279,11 +287,12 @@ PROGRAM W3SHEL
   USE W3WDASMD
   !/
   USE W3IOGRMD, ONLY: W3IOGR
-  USE W3IOGOMD, ONLY: W3READFLGRD, FLDOUT, W3FLGRDFLAG
+  USE W3IOGOMD, ONLY: W3READFLGRD, FLDOUT, W3FLGRDFLAG, S2GRID
   USE W3IORSMD, ONLY: OARST
   USE W3IOPOMD
   USE W3SERVMD, ONLY : NEXTLN, EXTCDE
   USE W3TIMEMD
+
 
 #ifdef W3_OASIS
   USE W3OACPMD, ONLY: CPL_OASIS_INIT, CPL_OASIS_GRID,            &
@@ -405,9 +414,26 @@ PROGRAM W3SHEL
   integer             :: flag, myproc, nprocs, max_appnum, min_appnum, this_root, other_root, rank_offset, this_nboxes
   integer             :: p, appnum, all_appnum(10), napps, all_argc(10), end_flag
   CHARACTER(LEN=80)   :: exename
+
+! MY EDITS HERE
+  REAL, ALLOCATABLE       :: X1(:,:)
+  INTEGER :: n_elements, ISEA, JSEA, IX, IY
+   REAL(8), allocatable :: magnitude_values(:)
+   REAL(8), allocatable :: theta_values(:)
+
+#ifdef W3_PDLIB
+  REAL(rkind)         :: XY_SEND(:)
+  REAL(rkind)         :: XY_SYNCH_SEND(:)
+
+#else
+  DOUBLE PRECISION, ALLOCATABLE    :: XY_SEND(:)
+  DOUBLE PRECISION, ALLOCATABLE    :: XY_SYNCH_SEND(:)
+#endif
+
 #endif
   character(len=10)   :: jchar
   integer             :: memunit
+  integer             :: COMMENT
   !
   !/
   !/ ------------------------------------------------------------------- /
@@ -618,6 +644,112 @@ PROGRAM W3SHEL
      end if
   end if
 #endif
+! DO THIS ONCE WHEN INITIALIZING
+! SEND WHICH HAPPENS BEFORE THE FIRST RECEIVE ---------------------------------*
+COMMENT = 0
+if (COMMENT .eq. 1) then
+  print *, "Now executing initial send from WW3 to ERF in WW3_SHEL"
+  CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NPROCS, IERR_MPI )
+  CALL MPI_COMM_RANK ( MPI_COMM_WORLD, MYPROC, IERR_MPI )
+  MYPROC = MYPROC + 1
+
+  ALLOCATE(X1(NX+1,NY))
+! NEXT LINE UNCOMMENTED
+  ALLOCATE(XY_SEND(NX*NY))
+  ALLOCATE(XY_SYNCH_SEND(NSEA))
+
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+        CALL MPI_Send(NX, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
+        CALL MPI_Send(NY, 1, MPI_INT, other_root, 6, MPI_COMM_WORLD, IERR_MPI)
+     else ! the second program
+        CALL MPI_Send(NX, 1, MPI_INT, other_root, 1, MPI_COMM_WORLD, IERR_MPI)
+        CALL MPI_Send(NY, 1, MPI_INT, other_root, 7, MPI_COMM_WORLD, IERR_MPI)
+     end if
+  end if
+
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+        X1     = UNDEF
+        XY_SEND     = UNDEF
+!        DO IX=1,NX
+!           DO IY=1,NY
+!              XY_SEND((IX)+(IY-1)*NX)=0.0
+!           END DO
+!        END DO
+        ! CALL S2GRID(HS_MPI, X1)
+        print *, "XY_SYNCH SEND, HS_MPI", size(XY_SYNCH_SEND), size(HS_MPI), NX, NY, NSEA 
+        XY_SYNCH_SEND = HS_MPI
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+
+
+        DO JSEA=1, NSEA
+           CALL INIT_GET_ISEA(ISEA, JSEA)
+           IX     = MAPSF(ISEA,1)
+           IY     = MAPSF(ISEA,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 2, MPI_COMM_WORLD, IERR_MPI)
+        X1     = UNDEF
+        XY_SYNCH_SEND = WLM
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA=1, NSEA
+           CALL INIT_GET_ISEA(ISEA, JSEA)
+           IX     = MAPSF(ISEA,1)
+           IY     = MAPSF(ISEA,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 4, MPI_COMM_WORLD, IERR_MPI)
+        print *, "THE FIRST PROGRAM"
+     else ! the second program
+        X1     = UNDEF
+        XY_SEND     = UNDEF
+print *, "XY_SYNCH SEND, HS_MPI", size(XY_SYNCH_SEND), size(HS_MPI), NX, NY, NSEA
+
+        XY_SYNCH_SEND = HS_MPI
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA=1, NSEA
+           CALL INIT_GET_ISEA(ISEA, JSEA)
+           IX     = MAPSF(ISEA,1)
+           IY     = MAPSF(ISEA,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 3, MPI_COMM_WORLD, IERR_MPI)
+        X1     = UNDEF
+        XY_SYNCH_SEND = WLM
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA=1, NSEA
+           CALL INIT_GET_ISEA(ISEA, JSEA)
+           IX     = MAPSF(ISEA,1)
+           IY     = MAPSF(ISEA,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 5, MPI_COMM_WORLD, IERR_MPI)
+        print *, "THE SECOND PROGRAM"
+     end if
+  end if
+
+print *, "JUST COMPLETED INITIAL SEND"
+
+! CHECK INITIAL SEND
+! CHECK XY_SYNCH_SEND, SYNCH_GLOBAL_ARRAY
+    OPEN(5120, file='printmpi.txt', status='unknown', access='append', action="write")
+
+    ! Write HS values to the new file
+    DO JSEA=1, NSEAL
+        CALL INIT_GET_ISEA(ISEA, JSEA)
+        IX     = MAPSF(ISEA,1)
+        IY     = MAPSF(ISEA,2)
+
+        WRITE(5120, *) SIZE(XY_SEND), XY_SEND(ISEA), SIZE(XY_SYNCH_SEND), XY_SYNCH_SEND(ISEA)
+    END DO
+    CLOSE(5120)
+  DEALLOCATE(X1)
+
+! COMMENT
+end if
+! END INITIAL SEND -------------------------------------------------------------*
+
 #else
   print*, "Not using MPI this run"
 #endif

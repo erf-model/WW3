@@ -67,8 +67,8 @@ MODULE W3SRCEMD
   !/ ------------------------------------------------------------------- /
   !/
     ! MY EDITS HERE
-    USE W3IOGOMD, ONLY: mag_values, th_values
-
+    USE W3IOGOMD, ONLY: mag_values, th_values, S2GRID
+    ! USE W3IOGOMD, ONLY: S2GRID
     ! END MY EDITS
 
   REAL, PARAMETER, PRIVATE:: OFFSET = 1.
@@ -509,12 +509,12 @@ CONTAINS
          NX, NY, NSEA, NSEAL, MAPSF
 
     USE W3WDATMD, ONLY: TIME
-    USE W3ODATMD, ONLY: NDSE, NDST, IAPROC, NAPROC, NTPROC
+    USE W3ODATMD, ONLY: NDSE, NDST, IAPROC, NAPROC, NTPROC, UNDEF
     USE W3IDATMD, ONLY: INFLAGS2
     USE W3DISPMD
     ! MY EDITS HERE
     ! USE W3IOGOMD, ONLY: magnitude_values, theta_values
-    USE W3ADATMD, ONLY: NSEALM
+    USE W3ADATMD, ONLY: NSEALM, HS, WLM
     USE MPICOMM, ONLY: MPI_COMM_WW3
     ! END MY EDITS
 
@@ -737,7 +737,7 @@ CONTAINS
     INTEGER :: IK, ITH, IS, IS0, NSTEPS, NKH, NKH1, &
          IKS1, IS1, NSPECH, IDT, IERR, ISP, COUNTER
     REAL :: DTTOT, FHIGH, DT, AFILT, DAMAX, AFAC, &
-         HDT, ZWND, FP, DEPTH, TAUSCX, TAUSCY, FHIGI
+         HDT, ZWND, FP, DEPTH, TAUSCX, TAUSCY, FHIGI, COMMENT
     ! Scaling factor for SIN, SDS, SNL
     REAL :: ICESCALELN, ICESCALEIN, ICESCALENL, ICESCALEDS
     REAL :: EMEAN, FMEAN, AMAX, CD, Z0, SCAT,    &
@@ -1978,7 +1978,101 @@ CONTAINS
      other_root = 0
   end if
 
-! START RECEIVING FROM ERF
+! START SENDING TO ERF -------------------------------------------------------------- *
+
+COMMENT = 3
+
+if (COMMENT .eq. 0) then
+
+ ALLOCATE(X1(NX+1,NY))
+!  ALLOCATE(XY_SEND(NX*NY))
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+        CALL MPI_Send(NX, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
+        CALL MPI_Send(NY, 1, MPI_INT, other_root, 6, MPI_COMM_WORLD, IERR_MPI)
+     else ! the second program
+        CALL MPI_Send(NX, 1, MPI_INT, other_root, 1, MPI_COMM_WORLD, IERR_MPI)
+        CALL MPI_Send(NY, 1, MPI_INT, other_root, 7, MPI_COMM_WORLD, IERR_MPI)
+     end if
+  end if
+
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+        X1     = UNDEF
+        XY_SEND     = UNDEF
+!        DO IX=1,NX
+!           DO IY=1,NY
+!              XY_SEND((IX)+(IY-1)*NX)=0.0
+!           END DO
+!        END DO
+        CALL S2GRID(HS, X1)
+        XY_SYNCH_SEND = HS
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+
+
+        DO JSEA_MPI=1, NSEA
+           CALL INIT_GET_ISEA(ISEA_MPI, JSEA_MPI)
+           IX_MPI     = MAPSF(ISEA_MPI,1)
+           IY_MPI     = MAPSF(ISEA_MPI,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA_MPI)
+        END DO
+
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 2, MPI_COMM_WORLD, IERR_MPI)
+        X1     = UNDEF
+        XY_SYNCH_SEND = WLM
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA_MPI=1, NSEA
+           CALL INIT_GET_ISEA(ISEA_MPI, JSEA_MPI)
+           IX_MPI     = MAPSF(ISEA_MPI,1)
+           IY_MPI     = MAPSF(ISEA_MPI,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA_MPI)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 4, MPI_COMM_WORLD, IERR_MPI)
+     else ! the second program
+        X1     = UNDEF
+        XY_SEND     = UNDEF
+        XY_SYNCH_SEND = HS
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA_MPI=1, NSEA
+           CALL INIT_GET_ISEA(ISEA_MPI, JSEA_MPI)
+           IX_MPI     = MAPSF(ISEA_MPI,1)
+           IY_MPI     = MAPSF(ISEA_MPI,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA_MPI)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 3, MPI_COMM_WORLD, IERR_MPI)
+        X1     = UNDEF
+        XY_SYNCH_SEND = WLM
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA_MPI=1, NSEA
+           CALL INIT_GET_ISEA(ISEA_MPI, JSEA_MPI)
+           IX_MPI     = MAPSF(ISEA_MPI,1)
+           IY_MPI     = MAPSF(ISEA_MPI,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA_MPI)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 5, MPI_COMM_WORLD, IERR_MPI)
+     end if
+  end if
+
+! CHECK XY_SYNCH_SEND, SYNCH_GLOBAL_ARRAY
+    OPEN(5120, file='printmpi.txt', status='unknown', access='append', action="write")
+
+    ! Write HS values to the new file
+    DO JSEA_MPI=1, NSEAL
+        CALL INIT_GET_ISEA(ISEA_MPI, JSEA_MPI)
+        IX_MPI     = MAPSF(ISEA_MPI,1)
+        IY_MPI     = MAPSF(ISEA_MPI,2)
+
+        WRITE(5120, *) SIZE(XY_SEND), XY_SEND(ISEA_MPI), SIZE(XY_SYNCH_SEND), XY_SYNCH_SEND(ISEA_MPI)
+    END DO
+    CLOSE(5120)
+  DEALLOCATE(X1)
+
+
+endif
+! END SENDING TO ERF ---------------------------------------------------------------- *
+
+if (COMMENT .eq. 1) then
+! START RECEIVING FROM ERF ---------------------------------------------------------- *
 
   if (MyProc-1 .eq. this_root) then
      if (rank_offset .eq. 0) then !  the first program
@@ -2014,6 +2108,8 @@ CONTAINS
      END DO
     close(6123)
 
+! COMMENT HERE
+end if
 
 #else
   print*, "Not using MPI this run"
@@ -2021,7 +2117,7 @@ CONTAINS
 #endif
 
 
-! END HERE
+! END RECEIVING FROM ERF --------------------------------------------------------------------*
 
 
 
