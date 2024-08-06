@@ -153,9 +153,9 @@ MODULE W3IOGOMD
   PUBLIC
   CHARACTER(LEN=1024)                   :: FLDOUT
 ! MY EDITS
-  PUBLIC :: mag_values, th_values
-  REAL(8), allocatable :: mag_values(:)
-  REAL(8), allocatable :: th_values(:)
+  !PUBLIC :: mag_values, th_values
+   REAL(8), allocatable :: magnitude_values(:)
+   REAL(8), allocatable :: theta_values(:)
   !/
   !/ Private parameter statements (ID strings)
   !/
@@ -198,11 +198,6 @@ SUBROUTINE WW3_SEND_TO_ERF
   integer             :: p, appnum, all_appnum(10), napps, all_argc(10), IERR_MPI
   CHARACTER(LEN=80)   :: exename
   REAL, ALLOCATABLE       :: X1(:,:)
-
-! MY EDITS
-  INTEGER :: n_elements
-   REAL(8), allocatable :: magnitude_values(:)
-   REAL(8), allocatable :: theta_values(:)
 
 #ifdef W3_PDLIB
   REAL(rkind)         :: XY_SEND(NX*NY)
@@ -357,8 +352,11 @@ SUBROUTINE WW3_RECEIVE_FROM_ERF
 
 ! MY EDITS
   INTEGER :: n_elements
-   REAL(8), allocatable :: magnitude_values(:)
-   REAL(8), allocatable :: theta_values(:)
+   ! REAL(8), allocatable :: magnitude_values(:)
+   ! REAL(8), allocatable :: theta_values(:)
+   
+   ! REAL(8), allocatable, intent(inout) :: mag_values(:)
+   ! REAL(8), allocatable, intent(inout) :: th_values(:)
 
 #ifdef W3_PDLIB
   REAL(rkind)         :: XY_SEND(NX*NY)
@@ -402,6 +400,13 @@ PRINT *, "ABOUT TO RECEIVE FROM ERF"
 
         CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 10, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI );
 
+    if(allocated(magnitude_values)) then
+        deallocate(magnitude_values)
+    endif
+
+    if(allocated(theta_values)) then
+        deallocate(theta_values)
+    endif
 
         allocate(magnitude_values(n_elements))
         allocate(theta_values(n_elements))
@@ -411,7 +416,13 @@ PRINT *, "ABOUT TO RECEIVE FROM ERF"
      else ! the second program
 
         CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 11, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI );
+    if(allocated(magnitude_values)) then
+        deallocate(magnitude_values)
+    endif
 
+    if(allocated(theta_values)) then
+        deallocate(theta_values)
+    endif
         allocate(magnitude_values(n_elements))
         allocate(theta_values(n_elements))
 
@@ -424,6 +435,12 @@ PRINT *, "ABOUT TO RECEIVE FROM ERF"
     print*, "JUST RECEIVED AND ALLOCATED MAG_VALUES(n-elements)"! MPI RECEIVE TEST
 #endif
 #endif
+
+!allocate(mag_values(n_elements))
+!allocate(th_values(n_elements))
+
+
+
 
 ! END RECEIVE ------------------------------------------------------------------ *
 END SUBROUTINE WW3_RECEIVE_FROM_ERF
@@ -1706,8 +1723,8 @@ END SUBROUTINE WW3_RECEIVE_FROM_ERF
 
 ! MY EDITS
   INTEGER :: n_elements
-   REAL(8), allocatable :: magnitude_values(:)
-   REAL(8), allocatable :: theta_values(:)
+   !REAL(8), allocatable :: magnitude_values(:)
+   !REAL(8), allocatable :: theta_values(:)
 
 #ifdef W3_PDLIB
   REAL(rkind)         :: XY_SEND(NX*NY)
@@ -2496,6 +2513,22 @@ END SUBROUTINE WW3_RECEIVE_FROM_ERF
 
 CALL WW3_SEND_TO_ERF()
 CALL WW3_RECEIVE_FROM_ERF()
+    open(unit=6123, file='ww3_mpi_recv.txt', status='unknown', access='append', action="write")
+     DO JSEA=1, NSEAL
+         CALL INIT_GET_ISEA(ISEA, JSEA)
+         IX     = MAPSF(ISEA,1)
+         IY     = MAPSF(ISEA,2)
+         ! Need correct mapping of magnitude_values and theta_values
+         COUNTER = IX + (IY-1) * NX
+
+!         mag_values(ISEA) = magnitude_values(ISEA)
+!         th_values(ISEA) = theta_values(ISEA)
+
+         WRITE(6123, *) "(", IX, IY, ")", n_elements, ISEA, JSEA, COUNTER, size(magnitude_values), magnitude_values(ISEA),  size(theta_values), theta_values(ISEA), IERR_MPI
+     END DO
+    ! write(6123,*) 'Magnitude Values:', magnitude_values, 'Theta Values:', theta_values
+    close(6123)
+
 
 ! Uncomment if statement if we only want to receive from ERF
 COMMENT = 2
@@ -2598,15 +2631,6 @@ PRINT *, "ABOUT TO RECEIVE FROM ERF"
 
         CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 10, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI );
        
-        if (allocated(mag_values)) then
-           deallocate(mag_values)
-           !allocate(mag_values(n_elements))
-        end if
-
-        if (allocated(th_values)) then
-          deallocate(th_values)
-          !allocate(th_values(n_elements))
-        end if
 
         allocate(magnitude_values(n_elements))
         allocate(theta_values(n_elements))
@@ -2616,15 +2640,6 @@ PRINT *, "ABOUT TO RECEIVE FROM ERF"
      else ! the second program
 
         CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 11, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI );
-        if (allocated(mag_values)) then
-          deallocate(mag_values)
-          !allocate(mag_values(n_elements))
-        end if
-
-        if (allocated(th_values)) then
-          deallocate(th_values)
-          !allocate(th_values(n_elements))
-        end if
  
         allocate(magnitude_values(n_elements))
         allocate(theta_values(n_elements))
@@ -2634,8 +2649,8 @@ PRINT *, "ABOUT TO RECEIVE FROM ERF"
      end if
   end if
 
-        allocate(mag_values(n_elements))
-        allocate(th_values(n_elements))
+!        allocate(mag_values(n_elements))
+!       allocate(th_values(n_elements))
 
     print*, "JUST RECEIVED AND ALLOCATED MAG_VALUES(n-elements)"! MPI RECEIVE TEST
     ! Allocate arrays
@@ -2655,10 +2670,10 @@ PRINT *, "ABOUT TO RECEIVE FROM ERF"
          ! Need correct mapping of magnitude_values and theta_values
          COUNTER = IX + (IY-1) * NX
          
-         mag_values(ISEA) = magnitude_values(ISEA)
-         th_values(ISEA) = theta_values(ISEA)
+         !mag_values(ISEA) = magnitude_values(ISEA)
+         !th_values(ISEA) = theta_values(ISEA)
 
-         WRITE(6123, *) "(", IX, IY, ")", n_elements, size(mag_values), ISEA, JSEA, COUNTER, size(magnitude_values), magnitude_values(ISEA), mag_values(ISEA), size(theta_values), theta_values(ISEA), IERR_MPI
+         WRITE(6123, *) "(", IX, IY, ")", n_elements, ISEA, JSEA, COUNTER, size(magnitude_values), magnitude_values(ISEA), size(theta_values), theta_values(ISEA), IERR_MPI
      END DO
     ! write(6123,*) 'Magnitude Values:', magnitude_values, 'Theta Values:', theta_values
     close(6123)

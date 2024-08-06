@@ -67,7 +67,7 @@ MODULE W3SRCEMD
   !/ ------------------------------------------------------------------- /
   !/
     ! MY EDITS HERE
-    USE W3IOGOMD, ONLY: mag_values, th_values, S2GRID
+    !USE W3IOGOMD, ONLY: mag_values, th_values, S2GRID
     ! USE W3IOGOMD, ONLY: S2GRID
     ! END MY EDITS
 
@@ -2126,11 +2126,11 @@ end if
     
     ! MY EDITS HERE
     ! Check if we can access received values from ERF
-print *, "Now activating ST6" 
-    OPEN(4121, file='output_SRC.txt', status='unknown', access='append', action="write")
-    !WRITE(4121, *) U10DIR, "(x_vel, y_vel) = ", "(", COS(U10DIR), SIN(U10DIR), ") ", "Wind Vel = ", U10ABS
-    WRITE(4121, *) size(mag_values), size(th_values)   
- CLOSE(4121)
+!print *, "Now activating ST6" 
+!    OPEN(4121, file='output_SRC.txt', status='unknown', access='append', action="write")
+!    !WRITE(4121, *) U10DIR, "(x_vel, y_vel) = ", "(", COS(U10DIR), SIN(U10DIR), ") ", "Wind Vel = ", U10ABS
+!    WRITE(4121, *) size(mag_values), size(th_values)   
+! CLOSE(4121)
 
     ! END MY EDITS
 
