@@ -234,6 +234,7 @@ SUBROUTINE WW3_SEND_TO_ERF
      other_root = 0
   end if
 
+print *, "ABOUT TO SEND n_elements, HS, LM to ERF"
   ALLOCATE(X1(NX+1,NY))
 !  ALLOCATE(XY_SEND(NX*NY))
   if (MyProc-1 .eq. this_root) then
@@ -296,6 +297,8 @@ SUBROUTINE WW3_SEND_TO_ERF
         CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 5, MPI_COMM_WORLD, IERR_MPI)
      end if
   end if
+
+print *, "Just sent HS, LM, n_elements to ERF"
 
 ! MY EDITS HERE
 ! CHECK XY_SYNCH_SEND, SYNCH_GLOBAL_ARRAY
@@ -369,6 +372,7 @@ SUBROUTINE WW3_RECEIVE_FROM_ERF
 
     INTEGER            :: JSEA, ISEA, IX, IY, I, J
 
+
 #ifdef W3_MPMD
 
 #ifdef W3_MPI
@@ -394,10 +398,10 @@ SUBROUTINE WW3_RECEIVE_FROM_ERF
 ! BEGIN RECEIVE FROM ERF ---------------------------------------------------- *
 
 n_elements = NX * NY
-PRINT *, "ABOUT TO RECEIVE FROM ERF"
+PRINT *, "ABOUT TO RECEIVE magnitude_values, theta_values FROM ERF"
   if (MyProc-1 .eq. this_root) then
      if (rank_offset .eq. 0) then !  the first program
-
+        print *, "WW3: Receiving from the first program"
         CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 10, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI );
 
     if(allocated(magnitude_values)) then
@@ -415,6 +419,7 @@ PRINT *, "ABOUT TO RECEIVE FROM ERF"
         CALL MPI_RECV(theta_values, n_elements, MPI_DOUBLE, other_root, 14, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI)
      else ! the second program
 
+        print *, "WW3: Receiving from the second program"
         CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 11, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI );
     if(allocated(magnitude_values)) then
         deallocate(magnitude_values)
@@ -432,7 +437,7 @@ PRINT *, "ABOUT TO RECEIVE FROM ERF"
   end if
 
 
-    print*, "JUST RECEIVED AND ALLOCATED MAG_VALUES(n-elements)"! MPI RECEIVE TEST
+    print*, "WW3: FINISHED RECEIVING AND ALLOCATED MAG_VALUES(n-elements)"! MPI RECEIVE TEST
 #endif
 #endif
 
@@ -2511,7 +2516,12 @@ END SUBROUTINE WW3_RECEIVE_FROM_ERF
 
 ! TESTING FUNCTION WW3_SEND_TO_ERF()
 
+COMMENT = 2
+print *, "WW3: Calling WW3_SEND_TO_ERF from w3iogomd"
+
 CALL WW3_SEND_TO_ERF()
+
+if (COMMENT .eq. -1) then
 CALL WW3_RECEIVE_FROM_ERF()
     open(unit=6123, file='ww3_mpi_recv.txt', status='unknown', access='append', action="write")
      DO JSEA=1, NSEAL
@@ -2528,10 +2538,9 @@ CALL WW3_RECEIVE_FROM_ERF()
      END DO
     ! write(6123,*) 'Magnitude Values:', magnitude_values, 'Theta Values:', theta_values
     close(6123)
-
+end if
 
 ! Uncomment if statement if we only want to receive from ERF
-COMMENT = 2
 
  if (COMMENT .eq. 1) then
  

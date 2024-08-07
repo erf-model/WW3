@@ -194,6 +194,8 @@ MODULE W3WAVEMD
 #endif
   !module default
   implicit none
+   !REAL(8), allocatable :: magnitude_values(:)
+   !REAL(8), allocatable :: theta_values(:)
   !
   PUBLIC
   !/
@@ -600,7 +602,9 @@ CONTAINS
     REAL, ALLOCATABLE       :: BACSPEC(:)
     REAL                    :: BACANGL
 #endif
-    integer :: memunit
+    integer :: memunit, COUNTER, n_elements
+
+n_elements = NX * NY
     !/ ------------------------------------------------------------------- /
     ! 0.  Initializations
     !
@@ -1476,7 +1480,24 @@ CONTAINS
             VDTOT = 0.
           ENDIF
 #endif
+! print *, "WW3: ABOUT TO CALL SOURCE TERM SUBROUTINE", ISEA, U10(ISEA)
+print *, "WW3: Calling WW3_RECEIVE_FROM_ERF from w3wavemd"
+CALL WW3_RECEIVE_FROM_ERF()
+    open(unit=6123, file='ww3_mpi_recv.txt', status='unknown', access='append', action="write")
+     DO JSEA=1, NSEAL
+         CALL INIT_GET_ISEA(ISEA, JSEA)
+         IX     = MAPSF(ISEA,1)
+         IY     = MAPSF(ISEA,2)
+         ! Need correct mapping of magnitude_values and theta_values
+         COUNTER = IX + (IY-1) * NX
 
+!         mag_values(ISEA) = magnitude_values(ISEA)
+!         th_values(ISEA) = theta_values(ISEA)
+
+         WRITE(6123, *) "(", IX, IY, ")", n_elements, ISEA, JSEA, COUNTER, size(magnitude_values), magnitude_values(ISEA),  size(theta_values), theta_values(ISEA)
+     END DO
+    ! write(6123,*) 'Magnitude Values:', magnitude_values, 'Theta Values:', theta_values
+    close(6123)
 
 #ifdef W3_PDLIB
 
@@ -1521,6 +1542,10 @@ CONTAINS
             WRITE(740+IAPROC,*) 'Before sum(VA)=', sum(VA(:,JSEA))
             FLUSH(740+IAPROC)
 #endif
+
+! MY EDITS HERE 
+! REPLACE U10 and U10D with magnitude and theta
+
             CALL W3SRCE(srce_imp_pre, IT, ISEA, JSEA, IX, IY, IMOD, &
                  VAold(:,JSEA), VA(:,JSEA),                         &
                  VSioDummy, VDioDummy, SHAVETOT(JSEA),              &

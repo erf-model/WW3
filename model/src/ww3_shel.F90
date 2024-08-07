@@ -622,10 +622,11 @@ PROGRAM W3SHEL
 !  IAPROC = IAPROC - 1
 !  MYPROC = MYPROC - 1
 #ifdef W3_MPI
-  print*, "My rank is ",MYPROC," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM
+  print*, "HERE I am WW3_shel. My rank is ",MYPROC," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM
   ! Should MPMD use the MPI rank indices adjusted for fortran?
   !  print*, "My rank is ",MYPROC-1," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC-1," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM
 #if 0
+
   this_nboxes=10
   rank_offset = MyProc - IAPROC;
   if (rank_offset .eq. 0) then ! First program
@@ -635,7 +636,7 @@ PROGRAM W3SHEL
      this_root = rank_offset
      other_root = 0
   end if
-
+print *, "I AM W3_SHEL"
   if (MyProc-1 .eq. this_root) then
      if (rank_offset .eq. 0) then !  the first program
         CALL MPI_Send(this_nboxes, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
@@ -647,107 +648,6 @@ PROGRAM W3SHEL
 ! DO THIS ONCE WHEN INITIALIZING
 ! SEND WHICH HAPPENS BEFORE THE FIRST RECEIVE ---------------------------------*
 COMMENT = 0
-if (COMMENT .eq. 1) then
-  print *, "Now executing initial send from WW3 to ERF in WW3_SHEL"
-  CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NPROCS, IERR_MPI )
-  CALL MPI_COMM_RANK ( MPI_COMM_WORLD, MYPROC, IERR_MPI )
-  MYPROC = MYPROC + 1
-
-  ALLOCATE(X1(NX+1,NY))
-! NEXT LINE UNCOMMENTED
-  ALLOCATE(XY_SEND(NX*NY))
-  ALLOCATE(XY_SYNCH_SEND(NSEA))
-
-  if (MyProc-1 .eq. this_root) then
-     if (rank_offset .eq. 0) then !  the first program
-        CALL MPI_Send(NX, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
-        CALL MPI_Send(NY, 1, MPI_INT, other_root, 6, MPI_COMM_WORLD, IERR_MPI)
-     else ! the second program
-        CALL MPI_Send(NX, 1, MPI_INT, other_root, 1, MPI_COMM_WORLD, IERR_MPI)
-        CALL MPI_Send(NY, 1, MPI_INT, other_root, 7, MPI_COMM_WORLD, IERR_MPI)
-     end if
-  end if
-
-  if (MyProc-1 .eq. this_root) then
-     if (rank_offset .eq. 0) then !  the first program
-        X1     = UNDEF
-        XY_SEND     = UNDEF
-!        DO IX=1,NX
-!           DO IY=1,NY
-!              XY_SEND((IX)+(IY-1)*NX)=0.0
-!           END DO
-!        END DO
-        ! CALL S2GRID(HS_MPI, X1)
-        print *, "XY_SYNCH SEND, HS_MPI", size(XY_SYNCH_SEND), size(HS_MPI), NX, NY, NSEA 
-        XY_SYNCH_SEND = HS_MPI
-        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
-
-
-        DO JSEA=1, NSEA
-           CALL INIT_GET_ISEA(ISEA, JSEA)
-           IX     = MAPSF(ISEA,1)
-           IY     = MAPSF(ISEA,2)
-           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
-        END DO
-        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 2, MPI_COMM_WORLD, IERR_MPI)
-        X1     = UNDEF
-        XY_SYNCH_SEND = WLM
-        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
-        DO JSEA=1, NSEA
-           CALL INIT_GET_ISEA(ISEA, JSEA)
-           IX     = MAPSF(ISEA,1)
-           IY     = MAPSF(ISEA,2)
-           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
-        END DO
-        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 4, MPI_COMM_WORLD, IERR_MPI)
-        print *, "THE FIRST PROGRAM"
-     else ! the second program
-        X1     = UNDEF
-        XY_SEND     = UNDEF
-print *, "XY_SYNCH SEND, HS_MPI", size(XY_SYNCH_SEND), size(HS_MPI), NX, NY, NSEA
-
-        XY_SYNCH_SEND = HS_MPI
-        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
-        DO JSEA=1, NSEA
-           CALL INIT_GET_ISEA(ISEA, JSEA)
-           IX     = MAPSF(ISEA,1)
-           IY     = MAPSF(ISEA,2)
-           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
-        END DO
-        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 3, MPI_COMM_WORLD, IERR_MPI)
-        X1     = UNDEF
-        XY_SYNCH_SEND = WLM
-        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
-        DO JSEA=1, NSEA
-           CALL INIT_GET_ISEA(ISEA, JSEA)
-           IX     = MAPSF(ISEA,1)
-           IY     = MAPSF(ISEA,2)
-           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
-        END DO
-        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 5, MPI_COMM_WORLD, IERR_MPI)
-        print *, "THE SECOND PROGRAM"
-     end if
-  end if
-
-print *, "JUST COMPLETED INITIAL SEND"
-
-! CHECK INITIAL SEND
-! CHECK XY_SYNCH_SEND, SYNCH_GLOBAL_ARRAY
-    OPEN(5120, file='printmpi.txt', status='unknown', access='append', action="write")
-
-    ! Write HS values to the new file
-    DO JSEA=1, NSEAL
-        CALL INIT_GET_ISEA(ISEA, JSEA)
-        IX     = MAPSF(ISEA,1)
-        IY     = MAPSF(ISEA,2)
-
-        WRITE(5120, *) SIZE(XY_SEND), XY_SEND(ISEA), SIZE(XY_SYNCH_SEND), XY_SYNCH_SEND(ISEA)
-    END DO
-    CLOSE(5120)
-  DEALLOCATE(X1)
-
-! COMMENT
-end if
 ! END INITIAL SEND -------------------------------------------------------------*
 
 #else
