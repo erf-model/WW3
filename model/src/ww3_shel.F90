@@ -2141,6 +2141,7 @@ print*, FLGNML, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   IF ( .NOT. FLFLG ) THEN
     !
     IF ( IAPROC .EQ. NAPOUT ) WRITE (NDSO,960)
+    print *, "FIRST CALL TO W3WAVE"
     CALL W3WAVE ( 1, ODAT, TIMEN                      &
 #ifdef W3_OASIS
          , .TRUE., .FALSE., MPI_COMM, TIMEN     &
@@ -2479,6 +2480,7 @@ print*, FLGNML, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
           ! WND : winds
         ELSE IF ( J .EQ. 3 ) THEN
+          print *, "Section 7 about to call wind fields" 
           IF ( FLH(J) ) THEN
             CALL W3FLDH (J, NDST, NDSEN, NX, NY, NX, NY,    &
                  TIME0, TIMEN, NH(J), NHMAX, THO, HA, HD, HS,&
@@ -2739,6 +2741,7 @@ print*, FLGNML, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   !
   TIME0  = TTIME
   !
+print *, "CALL TO W3WAVE FROM WW3_SHEL"
   CALL W3WAVE ( 1, ODAT, TIME0                                    &
 #ifdef W3_OASIS
        , .TRUE., .FALSE., MPI_COMM, TIMEN                         &
@@ -2782,6 +2785,7 @@ print*, FLGNML, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
     IF ( DTTST .EQ. 0. ) THEN
       IF ( IAPROC .EQ. NAPOUT ) WRITE (NDSO,*) ' '
+      print *, "THIRD CALL TO W3WAVE"
       CALL W3WAVE ( 1, ODAT, TIME0                                 &
 #ifdef W3_OASIS
            , .TRUE., .FALSE., MPI_COMM, TIMEN              &

@@ -772,6 +772,8 @@ n_elements = NX * NY
     !
     ! 1.d Wind interval
     !
+print *, "We have reached the end of Section 1.d (Wind Interval)"
+
     IF ( FLWIND ) THEN
       DTTST1 = DSEC21 ( TW0 , TWN )
       DTTST2 = DSEC21 ( TW0 , TIME )
@@ -895,6 +897,8 @@ n_elements = NX * NY
     ! 2.  Determine next time from ending and output --------------------- /
     !     time and get corresponding time step.
     !
+    ! MY EDITS
+    print *, "We have reached the start of Section 2"
     FLFRST = .TRUE.
     DO
 #ifdef W3_TIMINGS
@@ -1030,15 +1034,44 @@ n_elements = NX * NY
 #ifdef W3_T
       WRITE (NDST,9020) IT0, NT, DTGA
 #endif
+    print *, "We have reached the end of Section 2"
       !
+! MY EDITS HERE
+print *, "WW3: Calling WW3_RECEIVE_FROM_ERF from w3wavemd"
+CALL WW3_RECEIVE_FROM_ERF()
+    open(unit=6123, file='ww3_mpi_recv.txt', status='unknown', access='append', action="write")
+     DO JSEA=1, NSEAL
+         CALL INIT_GET_ISEA(ISEA, JSEA)
+         IX     = MAPSF(ISEA,1)
+         IY     = MAPSF(ISEA,2)
+         ! Need correct mapping of magnitude_values and theta_values
+         COUNTER = IX + (IY-1) * NX
+
+!         mag_values(ISEA) = magnitude_values(ISEA)
+!         th_values(ISEA) = theta_values(ISEA)
+
+         WRITE(6123, *) "(", IX, IY, ")", n_elements, ISEA, JSEA, COUNTER, size(magnitude_values), magnitude_values(ISEA),  size(theta_values), theta_values(ISEA)
+     END DO
+    ! write(6123,*) 'Magnitude Values:', magnitude_values, 'Theta Values:', theta_values
+    close(6123)
+
+! REPLACE U10(ISEA) and U10D(ISEA)
+
+DO JSEA=1, NSEAL
+   U10(JSEA) = magnitude_values(JSEA)
+   U10D(JSEA) = theta_values(JSEA)
+END DO
+
       ! ==================================================================== /
       !
       ! 3.  Loop over time steps
       !
+print *, "We have reached the start of Section 3"
       DTRES  = 0.
 
       !
       DO IT = IT0, NT
+print*, "DO  LOOP, IT, NT: ",  IT, NT
 #ifdef W3_TIMINGS
         CALL PRINT_MY_TIME("Begin of IT loop")
 #endif
@@ -1481,6 +1514,7 @@ n_elements = NX * NY
           ENDIF
 #endif
 ! print *, "WW3: ABOUT TO CALL SOURCE TERM SUBROUTINE", ISEA, U10(ISEA)
+if (.FALSE.) then
 print *, "WW3: Calling WW3_RECEIVE_FROM_ERF from w3wavemd"
 CALL WW3_RECEIVE_FROM_ERF()
     open(unit=6123, file='ww3_mpi_recv.txt', status='unknown', access='append', action="write")
@@ -1498,6 +1532,15 @@ CALL WW3_RECEIVE_FROM_ERF()
      END DO
     ! write(6123,*) 'Magnitude Values:', magnitude_values, 'Theta Values:', theta_values
     close(6123)
+
+! REPLACE U10(ISEA) and U10D(ISEA)
+
+DO JSEA=1, NSEAL
+   U10(JSEA) = magnitude_values(JSEA)
+   U10D(JSEA) = theta_values(JSEA)
+END DO
+ 
+ENDIF
 
 #ifdef W3_PDLIB
 
@@ -1543,8 +1586,6 @@ CALL WW3_RECEIVE_FROM_ERF()
             FLUSH(740+IAPROC)
 #endif
 
-! MY EDITS HERE 
-! REPLACE U10 and U10D with magnitude and theta
 
             CALL W3SRCE(srce_imp_pre, IT, ISEA, JSEA, IX, IY, IMOD, &
                  VAold(:,JSEA), VA(:,JSEA),                         &
@@ -1778,6 +1819,7 @@ CALL WW3_RECEIVE_FROM_ERF()
                     J = 1
                     !
 #ifdef W3_PR1
+print *, "Calling PR1 propagation scheme in Section 3"
                     CALL W3KTP1 ( ISEA, FACTH, FACK, CTHG0S(ISEA),       &
                          CG(:,ISEA), WN(:,ISEA), DEPTH,                  &
                          DDDX(IY,IXrel), DDDY(IY,IXrel), CX(ISEA),       &
@@ -2152,6 +2194,7 @@ CALL WW3_RECEIVE_FROM_ERF()
 
           ! 3.7 Calculate and integrate source terms.
           !
+print *, "Now at section 3.7, end of propagation and starting to calc source terms"
 370       CONTINUE
           IF ( FLSOU ) THEN
             !
@@ -2173,6 +2216,7 @@ CALL WW3_RECEIVE_FROM_ERF()
             END IF
 #endif
 #endif
+
             !
 #ifdef W3_OMPG
             !$OMP PARALLEL PRIVATE (JSEA,ISEA,IX,IY,DELA,DELX,DELY,        &
@@ -2347,6 +2391,7 @@ CALL WW3_RECEIVE_FROM_ERF()
           IDACT  = '         '
         END IF
         !
+print *, "End of Section 3.8, updated global timestep"
 #ifdef W3_DEBUGCOH
         CALL ALL_VA_INTEGRAL_PRINT(IMOD, "end of time loop", 1)
 #endif
@@ -2425,6 +2470,7 @@ CALL WW3_RECEIVE_FROM_ERF()
         !
         IF ( LOCAL .AND. FLPART ) CALL W3CPRT ( IMOD )
         IF ( LOCAL .AND. (FLOUTG .OR. FLOUTG2) ) then
+          print *, "CALLING W3OUTG from W3WAVEMD (original location 65%)"
           CALL W3OUTG ( VA, FLPFLD, FLOUTG, FLOUTG2 )
         end if
         !
@@ -2559,7 +2605,6 @@ CALL WW3_RECEIVE_FROM_ERF()
         call print_memcheck(memunit, 'memcheck_____:'//' WW3_WAVE AFTER TIME LOOP 2')
         !
         ! 4.c Reset next output time
-
         !
         TOFRST(1) = -1
         TOFRST(2) =  0
@@ -2751,6 +2796,7 @@ CALL WW3_RECEIVE_FROM_ERF()
           !
           ! 4.e Update next output time
           !
+
           IF ( FLOUT(J) ) THEN
             IF ( TOFRST(1).EQ.-1 ) THEN
               TOFRST = TOUT
@@ -2786,6 +2832,8 @@ CALL WW3_RECEIVE_FROM_ERF()
       !
       ! 5.  Update log file ------------------------------------------------ /
       !
+print *, "We have reached Section 5"
+
       IF ( IAPROC.EQ.NAPLOG ) THEN
         !
         CALL STME21 ( TIME , IDTIME )
@@ -2825,6 +2873,8 @@ CALL WW3_RECEIVE_FROM_ERF()
       !
       ! 6.  If time is not ending time, branch back to 2 ------------------- /
       !
+      print *, "We have reached Section 6, -> IF time is not ending time, back to branch 2  "
+
       DTTST  = DSEC21 ( TIME, TEND )
       IF ( DTTST .EQ. 0. ) EXIT
 #ifdef W3_TIMINGS
@@ -2846,6 +2896,8 @@ CALL WW3_RECEIVE_FROM_ERF()
     !
     call print_memcheck(memunit, 'memcheck_____:'//' WW3_WAVE END W3WAVE')
     !
+print *, "We have reached the end of Section 5"
+
     RETURN
     !
     ! Formats
@@ -3046,6 +3098,7 @@ CALL WW3_RECEIVE_FROM_ERF()
     USE W3SERVMD, ONLY: STRACE
 #endif
     !/
+    USE W3IOGOMD ! MY EDITS
     USE W3GDATMD, ONLY: NSPEC, NX, NY, NSEA, NSEAL, MAPSF, DMIN
     USE W3PARALL, ONLY: INIT_GET_ISEA
     USE W3WDATMD, ONLY: A => VA
@@ -3113,6 +3166,9 @@ CALL WW3_RECEIVE_FROM_ERF()
     IBFLOC = IBFLOC + 1
     IF ( IBFLOC .GT. MPIBUF ) IBFLOC = 1
 #endif
+!print *, "CALLING WW3_SEND_TO_ERF() from W3WAVE"
+!CALL WW3_SEND_TO_ERF()
+
     !
 #ifdef W3_MPIT
     IF ( ISPLOC .EQ. 1 ) THEN

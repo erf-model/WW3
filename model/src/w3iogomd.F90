@@ -299,6 +299,30 @@ print *, "ABOUT TO SEND n_elements, HS, LM to ERF"
   end if
 
 print *, "Just sent HS, LM, n_elements to ERF"
+    OPEN(2120, file='output_HS.txt', status='unknown', access='append', action="write")
+
+    ! Write HS values to the new file
+    DO JSEA=1, NSEAL
+        CALL INIT_GET_ISEA(ISEA, JSEA)
+        IX     = MAPSF(ISEA,1)
+        IY     = MAPSF(ISEA,2)
+
+        WRITE(2120, *) IAPROC, JSEA, ISEA, "(", IX, IY, ")", HS(ISEA)
+    END DO
+    CLOSE(2120)
+
+    ! 
+    OPEN(2121, file='output_LM.txt', status='unknown', access='append', action="write")
+    ! Write LM values to the new file
+    DO JSEA=1, NSEAL
+        CALL INIT_GET_ISEA(ISEA, JSEA)
+        IX     = MAPSF(ISEA,1)
+        IY     = MAPSF(ISEA,2)
+
+        WRITE(2121, *) "(", IX, IY, ")", WLM(ISEA)
+    END DO
+    CLOSE(2121)
+
 
 ! MY EDITS HERE
 ! CHECK XY_SYNCH_SEND, SYNCH_GLOBAL_ARRAY
@@ -2521,206 +2545,6 @@ print *, "WW3: Calling WW3_SEND_TO_ERF from w3iogomd"
 
 CALL WW3_SEND_TO_ERF()
 
-if (COMMENT .eq. -1) then
-CALL WW3_RECEIVE_FROM_ERF()
-    open(unit=6123, file='ww3_mpi_recv.txt', status='unknown', access='append', action="write")
-     DO JSEA=1, NSEAL
-         CALL INIT_GET_ISEA(ISEA, JSEA)
-         IX     = MAPSF(ISEA,1)
-         IY     = MAPSF(ISEA,2)
-         ! Need correct mapping of magnitude_values and theta_values
-         COUNTER = IX + (IY-1) * NX
-
-!         mag_values(ISEA) = magnitude_values(ISEA)
-!         th_values(ISEA) = theta_values(ISEA)
-
-         WRITE(6123, *) "(", IX, IY, ")", n_elements, ISEA, JSEA, COUNTER, size(magnitude_values), magnitude_values(ISEA),  size(theta_values), theta_values(ISEA), IERR_MPI
-     END DO
-    ! write(6123,*) 'Magnitude Values:', magnitude_values, 'Theta Values:', theta_values
-    close(6123)
-end if
-
-! Uncomment if statement if we only want to receive from ERF
-
- if (COMMENT .eq. 1) then
- 
-  ALLOCATE(X1(NX+1,NY))
-!  ALLOCATE(XY_SEND(NX*NY))
-  if (MyProc-1 .eq. this_root) then
-     if (rank_offset .eq. 0) then !  the first program
-        CALL MPI_Send(NX, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
-        CALL MPI_Send(NY, 1, MPI_INT, other_root, 6, MPI_COMM_WORLD, IERR_MPI)
-     else ! the second program
-        CALL MPI_Send(NX, 1, MPI_INT, other_root, 1, MPI_COMM_WORLD, IERR_MPI)
-        CALL MPI_Send(NY, 1, MPI_INT, other_root, 7, MPI_COMM_WORLD, IERR_MPI)
-     end if
-  end if
-
-  if (MyProc-1 .eq. this_root) then
-     if (rank_offset .eq. 0) then !  the first program
-        X1     = UNDEF
-        XY_SEND     = UNDEF
-!        DO IX=1,NX
-!           DO IY=1,NY
-!              XY_SEND((IX)+(IY-1)*NX)=0.0
-!           END DO
-!        END DO
-        CALL S2GRID(HS, X1)
-        XY_SYNCH_SEND = HS
-        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
-
-
-        DO JSEA=1, NSEA
-           CALL INIT_GET_ISEA(ISEA, JSEA)
-           IX     = MAPSF(ISEA,1)
-           IY     = MAPSF(ISEA,2)
-           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
-        END DO
-
-        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 2, MPI_COMM_WORLD, IERR_MPI)
-        X1     = UNDEF
-        XY_SYNCH_SEND = WLM
-        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
-        DO JSEA=1, NSEA
-           CALL INIT_GET_ISEA(ISEA, JSEA)
-           IX     = MAPSF(ISEA,1)
-           IY     = MAPSF(ISEA,2)
-           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
-        END DO
-        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 4, MPI_COMM_WORLD, IERR_MPI)
-     else ! the second program
-        X1     = UNDEF
-        XY_SEND     = UNDEF
-        XY_SYNCH_SEND = HS
-        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
-        DO JSEA=1, NSEA
-           CALL INIT_GET_ISEA(ISEA, JSEA)
-           IX     = MAPSF(ISEA,1)
-           IY     = MAPSF(ISEA,2)
-           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
-        END DO
-        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 3, MPI_COMM_WORLD, IERR_MPI)
-        X1     = UNDEF
-        XY_SYNCH_SEND = WLM
-        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
-        DO JSEA=1, NSEA
-           CALL INIT_GET_ISEA(ISEA, JSEA)
-           IX     = MAPSF(ISEA,1)
-           IY     = MAPSF(ISEA,2)
-           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
-        END DO
-        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 5, MPI_COMM_WORLD, IERR_MPI)
-     end if
-  end if
-
-! MY EDITS HERE
-! CHECK XY_SYNCH_SEND, SYNCH_GLOBAL_ARRAY
-    OPEN(5120, file='printmpi.txt', status='unknown', access='append', action="write")
-
-    ! Write HS values to the new file
-    DO JSEA=1, NSEAL
-        CALL INIT_GET_ISEA(ISEA, JSEA)
-        IX     = MAPSF(ISEA,1)
-        IY     = MAPSF(ISEA,2)
-
-        WRITE(5120, *) SIZE(XY_SEND), XY_SEND(ISEA), SIZE(XY_SYNCH_SEND), XY_SYNCH_SEND(ISEA)
-    END DO
-    CLOSE(5120)
-  DEALLOCATE(X1)
-!  DEALLOCATE(XY_SEND)
-! Uncomment to turn off send:
-end if
-
-! Uncomment to turn off receive:
-if (COMMENT .eq. 0) then
-
-PRINT *, "ABOUT TO RECEIVE FROM ERF"
-  if (MyProc-1 .eq. this_root) then
-     if (rank_offset .eq. 0) then !  the first program
-
-        CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 10, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI );
-       
-
-        allocate(magnitude_values(n_elements))
-        allocate(theta_values(n_elements))
-
-        CALL MPI_RECV(magnitude_values, n_elements, MPI_DOUBLE, other_root, 12, MPI_COMM_WORLD,MPI_STATUS_IGNORE, IERR_MPI)
-        CALL MPI_RECV(theta_values, n_elements, MPI_DOUBLE, other_root, 14, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI)
-     else ! the second program
-
-        CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 11, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI );
- 
-        allocate(magnitude_values(n_elements))
-        allocate(theta_values(n_elements))
-        
-        call MPI_RECV(magnitude_values, n_elements, MPI_DOUBLE, other_root, 13, MPI_COMM_WORLD,MPI_STATUS_IGNORE, IERR_MPI)
-        call MPI_RECV(theta_values, n_elements, MPI_DOUBLE, other_root, 15, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI)
-     end if
-  end if
-
-!        allocate(mag_values(n_elements))
-!       allocate(th_values(n_elements))
-
-    print*, "JUST RECEIVED AND ALLOCATED MAG_VALUES(n-elements)"! MPI RECEIVE TEST
-    ! Allocate arrays
-    !allocate(magnitude_values(n_elements))
-    !allocate(theta_values(n_elements))
-    ! Receive magnitude array
-    !call MPI_RECV(magnitude_values, n_elements, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD, IERR_MPI)
-
-    ! Receive theta array
-    !call MPI_RECV(theta_values, n_elements, MPI_DOUBLE, 0, 4, MPI_COMM_WORLD, IERR_MPI)
-    ! Print received values to a txt file
-    open(unit=6123, file='ww3_mpi_recv.txt', status='unknown', access='append', action="write")
-     DO JSEA=1, NSEAL
-         CALL INIT_GET_ISEA(ISEA, JSEA)
-         IX     = MAPSF(ISEA,1)
-         IY     = MAPSF(ISEA,2)
-         ! Need correct mapping of magnitude_values and theta_values
-         COUNTER = IX + (IY-1) * NX
-         
-         !mag_values(ISEA) = magnitude_values(ISEA)
-         !th_values(ISEA) = theta_values(ISEA)
-
-         WRITE(6123, *) "(", IX, IY, ")", n_elements, ISEA, JSEA, COUNTER, size(magnitude_values), magnitude_values(ISEA), size(theta_values), theta_values(ISEA), IERR_MPI
-     END DO
-    ! write(6123,*) 'Magnitude Values:', magnitude_values, 'Theta Values:', theta_values
-    close(6123)
-Print*, "just copied into mag_values" 
-! Uncomment to turn off receive:
-end if
-
-#else
-  print*, "Not using MPI this run"
-#endif
-#endif
-
-
-    ! MOVE LOOP HERE
-    OPEN(2120, file='output_HS.txt', status='unknown', access='append', action="write")
-
-    ! Write HS values to the new file
-    DO JSEA=1, NSEAL
-        CALL INIT_GET_ISEA(ISEA, JSEA)
-        IX     = MAPSF(ISEA,1)
-        IY     = MAPSF(ISEA,2)
-   
-        WRITE(2120, *) IAPROC, JSEA, ISEA, "(", IX, IY, ")", HS(ISEA)
-    END DO
-    CLOSE(2120)
-
-    ! 
-    OPEN(2121, file='output_LM.txt', status='replace', action="write")
-    ! Write LM values to the new file
-    DO JSEA=1, NSEAL
-        CALL INIT_GET_ISEA(ISEA, JSEA)
-        IX     = MAPSF(ISEA,1)
-        IY     = MAPSF(ISEA,2)
-
-        WRITE(2121, *) "(", IX, IY, ")", WLM(ISEA)
-    END DO
-    CLOSE(2121)
-
     ! MY EDITS HERE
     OPEN(3121, file='output_WND.txt', status='replace', action="write")
     ! Write (IX,IY) : (x-velocity, y-velocity) values to the new file
@@ -2740,6 +2564,11 @@ end if
         ! PRINT*, "(", IX, IY, ")", "(x_vel, y_vel) = ", "("COSU, SINU") ", "Wind Vel = ", TU10   
     END DO
     CLOSE(3121)
+
+#endif
+#endif
+
+
 ! ----------- END OF SEND AND RECEIVE FROM ERF ---------------------------*
 
     ! 4.  Peak frequencies and directions -------------------------------- *
