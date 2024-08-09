@@ -29,7 +29,7 @@ MODULE W3STRKMD
   !/
   use constants, only: file_endian
 #ifdef W3_MPI
-  USE MPICOMM
+  USE MPICOMM, ONLY: MPI_COMM_WW3
 #endif
   !
   IMPLICIT NONE

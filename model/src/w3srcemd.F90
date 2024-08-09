@@ -66,7 +66,13 @@ MODULE W3SRCEMD
   !
   !/ ------------------------------------------------------------------- /
   !/
+    ! MY EDITS HERE
+    !USE W3IOGOMD, ONLY: mag_values, th_values, S2GRID
+    ! USE W3IOGOMD, ONLY: S2GRID
+    ! END MY EDITS
+
   REAL, PARAMETER, PRIVATE:: OFFSET = 1.
+
   !/
 CONTAINS
   !/ ------------------------------------------------------------------- /
@@ -499,11 +505,20 @@ CONTAINS
          DTMIN, FACTI1, FACTI2, FACSD, FACHFA, FACP, &
          XFC, XFLT, XREL, XFT, FXFM, FXPM, DDEN,     &
          FTE, FTF, FHMAX, ECOS, ESIN, IICEDISP,      &
-         ICESCALES, IICESMOOTH
+         ICESCALES, IICESMOOTH,   &! MY EDITS
+         NX, NY, NSEA, NSEAL, MAPSF
+
     USE W3WDATMD, ONLY: TIME
-    USE W3ODATMD, ONLY: NDSE, NDST, IAPROC
+    USE W3ODATMD, ONLY: NDSE, NDST, IAPROC, NAPROC, NTPROC, UNDEF
     USE W3IDATMD, ONLY: INFLAGS2
     USE W3DISPMD
+    ! MY EDITS HERE
+    ! USE W3IOGOMD, ONLY: magnitude_values, theta_values
+    USE W3ADATMD, ONLY: NSEALM, HS, WLM
+    USE MPICOMM, ONLY: MPI_COMM_WW3
+    ! END MY EDITS
+
+
 #ifdef W3_T
     USE CONSTANTS, ONLY: RADE
 #endif
@@ -641,20 +656,27 @@ CONTAINS
     USE W3UOSTMD, ONLY: UOST_SRCTRMCOMPUTE
 #endif
 #ifdef W3_PDLIB
+    USE W3ADATMD, ONLY: MPI_COMM_WCMP
     USE PDLIB_W3PROFSMD, ONLY : B_JAC, ASPAR_JAC, ASPAR_DIAG_ALL
     USE yowNodepool, ONLY: PDLIB_I_DIAG, PDLIB_SI
     USE W3GDATMD, ONLY: B_JGS_LIMITER, FSSOURCE, optionCall
     USE W3GDATMD, ONLY: IOBP_LOC, IOBPD_LOC, B_JGS_LIMITER_FUNC
     USE W3WDATMD, ONLY: VA
-    USE W3PARALL, ONLY: IMEM, LSLOC
+    USE W3PARALL, ONLY: IMEM, LSLOC, INIT_GET_ISEA, SYNCHRONIZE_GLOBAL_ARRAY ! MY EDITS
 #endif
+    USE W3PARALL, ONLY: IMEM, LSLOC, INIT_GET_ISEA, SYNCHRONIZE_GLOBAL_ARRAY ! MY EDITS
     !/
     IMPLICIT NONE
+#ifdef W3_MPI
+  INCLUDE "mpif.h"
+#endif
+
     !/
     !/ ------------------------------------------------------------------- /
     !/ Parameter list
     !/
     INTEGER, INTENT(IN)     :: srce_call, IT, ISEA, JSEA, IX, IY, IMOD
+    INTEGER                 :: JSEA_MPI, IX_MPI, IY_MPI, ISEA_MPI
     REAL, intent(in)        :: SPECOLD(NSPEC), CLATSL
     REAL, INTENT(OUT)       :: VSIO(NSPEC), VDIO(NSPEC)
     LOGICAL, INTENT(OUT)    :: SHAVEIO
@@ -677,6 +699,37 @@ CONTAINS
          ICEF, TAUOCX, TAUOCY, WNMEAN
     REAL, INTENT(OUT)       :: DTDYN, FCUT
     REAL, INTENT(IN)        :: COEF
+
+! MY EDITS HERE
+#define W3_MPMD
+#ifdef W3_MPMD
+  LOGICAL             :: FIRST_STEP = .TRUE., initialized, mpi_initialized_by_us
+  integer             :: flag, myproc, nprocs, max_appnum, min_appnum, this_root, other_root, rank_offset, this_nboxes
+  integer             :: p, appnum, all_appnum(10), napps, all_argc(10), IERR_MPI
+  CHARACTER(LEN=80)   :: exename
+  REAL, ALLOCATABLE       :: X1(:,:)
+
+! MY EDITS
+  INTEGER :: n_elements
+  REAL(8), allocatable :: magnitude_values(:)
+  REAL(8), allocatable :: theta_values(:)
+
+#ifdef W3_PDLIB
+  REAL(rkind)         :: XY_SEND(NX*NY)
+  REAL(rkind)         :: XY_SYNCH_SEND(NSEA)
+#else
+  DOUBLE PRECISION    :: XY_SEND(NX*NY)
+  DOUBLE PRECISION    :: XY_SYNCH_SEND(NSEA)
+#endif
+#endif
+    !/
+    !/ ------------------------------------------------------------------- /
+    !/ Local parameters
+    !/
+    INTEGER                 ::  I, J
+
+! END MY EDITS
+
     !/
     !/ ------------------------------------------------------------------- /
     !/ Local parameters
@@ -684,7 +737,7 @@ CONTAINS
     INTEGER :: IK, ITH, IS, IS0, NSTEPS, NKH, NKH1, &
          IKS1, IS1, NSPECH, IDT, IERR, ISP, COUNTER
     REAL :: DTTOT, FHIGH, DT, AFILT, DAMAX, AFAC, &
-         HDT, ZWND, FP, DEPTH, TAUSCX, TAUSCY, FHIGI
+         HDT, ZWND, FP, DEPTH, TAUSCX, TAUSCY, FHIGI, COMMENT
     ! Scaling factor for SIN, SDS, SNL
     REAL :: ICESCALELN, ICESCALEIN, ICESCALENL, ICESCALEDS
     REAL :: EMEAN, FMEAN, AMAX, CD, Z0, SCAT,    &
@@ -904,6 +957,42 @@ CONTAINS
 
 #if defined(W3_ST0) || defined(W3_ST1) || defined(W3_ST6)
     ZWND = 10.
+    ! MY EDITS HERE
+    ! CHECK WHAT DEFAULT U10 AND UDIR ARE:
+    ! OPEN(8120, file='wind.txt', status='unknown', access='append', action="write")
+
+    ! Write HS values to the new file
+    !DO JSEA=1, NSEAL
+     !   CALL INIT_GET_ISEA(ISEA, JSEA)
+      ! IX     = MAPSF(ISEA,1)
+       !IY     = MAPSF(ISEA,2)
+
+      ! WRITE(8120, *) ISEA, JSEA, SIZE(U10ABS), U10ABS, SIZE(U10DIR), U10DIR
+    !   WRITE(8120, *) ISEA, JSEA, U10ABS, U10DIR
+    !WRITE(8120, *) size(mag_values), th_values
+    !END DO
+    !CLOSE(8120)
+
+#ifdef W3_PDLIB
+    !USE W3ODATMD, only : IAPROC, NAPROC, NTPROC
+    ! USE W3ADATMD, ONLY: MPI_COMM_WCMP
+    use yowDatapool, only: rtype, istatus
+    USE yowNodepool, only: npa
+    use yowNodepool, only: iplg
+    use yowDatapool, only: rkind
+#endif
+    ! USE W3ODATMD, ONLY: NDST, UNDEF, IAPROC, NAPROC, NAPFLD,        &
+    !     ICPRT, DTPRT, WSCUT, NOSWLL, FLOGRD, FLOGR2
+       
+    ! USE W3GDATMD, ONLY : NX, NY, NSEA, NSEALM
+    ! USE W3ADATMD, ONLY: NSEALM
+#ifdef W3_S
+    USE W3SERVMD, ONLY: STRACE
+#endif
+    !
+    ! USE W3PARALL, ONLY : INIT_GET_ISEA, SYNCHRONIZE_GLOBAL_ARRAY
+
+
 #endif
 
 #if defined(W3_ST2)
@@ -1097,11 +1186,6 @@ CONTAINS
 
     CALL W3SPR6 (SPEC, CG1, WN1, EMEAN, FMEAN, WNMEAN, AMAX, FP)
 
-! MY EDITS HERE
-    ! open(unit=8123, file='sourceterm.txt', status='unknown', access='append', action="write")
-         print*, " This is the first ifdef for W3_ST6 in w3srce.md "
-    ! WRITE(8123, *) "This is the first ifdef for W3_ST6 in w3srce.md"
-    ! close(8123)
 
 #endif
     !
@@ -1221,6 +1305,21 @@ CONTAINS
 #endif
 
 #ifdef W3_ST6
+
+    OPEN(8120, file='default_wind.txt', status='unknown', access='append', action="write")
+
+    ! Write HS values to the new file
+    !DO JSEA=1, NSEAL
+     !   CALL INIT_GET_ISEA(ISEA, JSEA)
+      ! IX     = MAPSF(ISEA,1)
+       !IY     = MAPSF(ISEA,2)
+
+      !WRITE(8120, *) ISEA, JSEA, SIZE(U10ABS), U10ABS, SIZE(U10DIR), U10DIR
+       WRITE(8120, *) ISEA, JSEA, U10ABS, U10DIR
+    !WRITE(8120, *) size(mag_values), size(th_values)
+    !END DO
+    CLOSE(8120)
+
       CALL W3SIN6 ( SPEC, CG1, WN2, U10ABS, USTAR, USTDIR, CD, DAIR, &
            TAUWX, TAUWY, TAUWAX, TAUWAY, VSIN, VDIN )
 #endif
@@ -1851,22 +1950,189 @@ CONTAINS
       !
 #ifdef W3_ST6
 
+! START HERE
+    !/ ------------------------------------------------------------------- /
+    !/ Parameter list
+    !/
+    ! MY EDITS 
+    ! INTEGER :: COUNTER
+    ! REAL, ALLOCATABLE       :: X1(:,:)
+
+#ifdef W3_MPMD
+
+#ifdef W3_MPI
+  CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NPROCS, IERR_MPI )
+#endif
+#ifdef W3_MPI
+  CALL MPI_COMM_RANK ( MPI_COMM_WORLD, MYPROC, IERR_MPI )
+  MYPROC = MYPROC + 1
+#endif
+
+#ifdef W3_MPI
+  rank_offset = MyProc - IAPROC;
+  if (rank_offset .eq. 0) then ! First program
+     this_root = 0
+     other_root = NAPROC
+  else
+     this_root = rank_offset
+     other_root = 0
+  end if
+
+! START SENDING TO ERF -------------------------------------------------------------- *
+
+COMMENT = 3
+
+if (COMMENT .eq. 0) then
+
+ ALLOCATE(X1(NX+1,NY))
+!  ALLOCATE(XY_SEND(NX*NY))
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+        CALL MPI_Send(NX, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
+        CALL MPI_Send(NY, 1, MPI_INT, other_root, 6, MPI_COMM_WORLD, IERR_MPI)
+     else ! the second program
+        CALL MPI_Send(NX, 1, MPI_INT, other_root, 1, MPI_COMM_WORLD, IERR_MPI)
+        CALL MPI_Send(NY, 1, MPI_INT, other_root, 7, MPI_COMM_WORLD, IERR_MPI)
+     end if
+  end if
+
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+        X1     = UNDEF
+        XY_SEND     = UNDEF
+!        DO IX=1,NX
+!           DO IY=1,NY
+!              XY_SEND((IX)+(IY-1)*NX)=0.0
+!           END DO
+!        END DO
+        CALL S2GRID(HS, X1)
+        XY_SYNCH_SEND = HS
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+
+
+        DO JSEA_MPI=1, NSEA
+           CALL INIT_GET_ISEA(ISEA_MPI, JSEA_MPI)
+           IX_MPI     = MAPSF(ISEA_MPI,1)
+           IY_MPI     = MAPSF(ISEA_MPI,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA_MPI)
+        END DO
+
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 2, MPI_COMM_WORLD, IERR_MPI)
+        X1     = UNDEF
+        XY_SYNCH_SEND = WLM
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA_MPI=1, NSEA
+           CALL INIT_GET_ISEA(ISEA_MPI, JSEA_MPI)
+           IX_MPI     = MAPSF(ISEA_MPI,1)
+           IY_MPI     = MAPSF(ISEA_MPI,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA_MPI)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 4, MPI_COMM_WORLD, IERR_MPI)
+     else ! the second program
+        X1     = UNDEF
+        XY_SEND     = UNDEF
+        XY_SYNCH_SEND = HS
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA_MPI=1, NSEA
+           CALL INIT_GET_ISEA(ISEA_MPI, JSEA_MPI)
+           IX_MPI     = MAPSF(ISEA_MPI,1)
+           IY_MPI     = MAPSF(ISEA_MPI,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA_MPI)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 3, MPI_COMM_WORLD, IERR_MPI)
+        X1     = UNDEF
+        XY_SYNCH_SEND = WLM
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA_MPI=1, NSEA
+           CALL INIT_GET_ISEA(ISEA_MPI, JSEA_MPI)
+           IX_MPI     = MAPSF(ISEA_MPI,1)
+           IY_MPI     = MAPSF(ISEA_MPI,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA_MPI)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 5, MPI_COMM_WORLD, IERR_MPI)
+     end if
+  end if
+
+! CHECK XY_SYNCH_SEND, SYNCH_GLOBAL_ARRAY
+    OPEN(5120, file='printmpi.txt', status='unknown', access='append', action="write")
+
+    ! Write HS values to the new file
+    DO JSEA_MPI=1, NSEAL
+        CALL INIT_GET_ISEA(ISEA_MPI, JSEA_MPI)
+        IX_MPI     = MAPSF(ISEA_MPI,1)
+        IY_MPI     = MAPSF(ISEA_MPI,2)
+
+        WRITE(5120, *) SIZE(XY_SEND), XY_SEND(ISEA_MPI), SIZE(XY_SYNCH_SEND), XY_SYNCH_SEND(ISEA_MPI)
+    END DO
+    CLOSE(5120)
+  DEALLOCATE(X1)
+
+
+endif
+! END SENDING TO ERF ---------------------------------------------------------------- *
+
+if (COMMENT .eq. 1) then
+! START RECEIVING FROM ERF ---------------------------------------------------------- *
+
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+
+        CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 10, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI );
+        allocate(magnitude_values(n_elements))
+        allocate(theta_values(n_elements))
+
+        CALL MPI_RECV(magnitude_values, n_elements, MPI_DOUBLE, other_root, 12, MPI_COMM_WORLD,MPI_STATUS_IGNORE, IERR_MPI)
+        CALL MPI_RECV(theta_values, n_elements, MPI_DOUBLE, other_root, 14, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI)
+     else ! the second program
+
+        CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 11, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI );
+        allocate(magnitude_values(n_elements))
+        allocate(theta_values(n_elements))
+
+        call MPI_RECV(magnitude_values, n_elements, MPI_DOUBLE, other_root, 13, MPI_COMM_WORLD,MPI_STATUS_IGNORE, IERR_MPI)
+        call MPI_RECV(theta_values, n_elements, MPI_DOUBLE, other_root, 15, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI)
+     end if
+  end if
+
+
+    print*, "Now I am receiving from ERF"! MPI RECEIVE TEST
+   ! Print received values to a txt file
+    open(unit=6123, file='ww3_mpi_recv.txt', status='unknown', access='append', action="write")
+     DO JSEA_MPI=1, NSEAL
+         CALL INIT_GET_ISEA(ISEA_MPI, JSEA_MPI)
+         IX_MPI     = MAPSF(ISEA_MPI,1)
+         IY_MPI     = MAPSF(ISEA_MPI,2)
+         ! Need correct mapping of magnitude_values and theta_values
+         COUNTER = IX_MPI + (IY_MPI-1) * NX
+         WRITE(6123, *) "(", IX_MPI, IY_MPI, ")", ISEA_MPI, JSEA_MPI, COUNTER, size(magnitude_values), magnitude_values(ISEA_MPI), size(theta_values), theta_values(ISEA_MPI), IERR_MPI
+     END DO
+    close(6123)
+
+! COMMENT HERE
+end if
+
+#else
+  print*, "Not using MPI this run"
+#endif
+#endif
+
+
+! END RECEIVING FROM ERF --------------------------------------------------------------------*
+
+
+
+
+   !  CALL RECVFROMERF()
     
     ! MY EDITS HERE
-    COUNTER = 1
-    print*, " Source terms HERE "    
-    IF (COUNTER.EQ.1) THEN
-        OPEN(4121, file='output_SRC.txt', status='replace', action="write")
-        WRITE(4121, *) U10DIR, "(x_vel, y_vel) = ", "(", COS(U10DIR), SIN(U10DIR), ") ", "Wind Vel = ", U10ABS
+    ! Check if we can access received values from ERF
+!print *, "Now activating ST6" 
+!    OPEN(4121, file='output_SRC.txt', status='unknown', access='append', action="write")
+!    !WRITE(4121, *) U10DIR, "(x_vel, y_vel) = ", "(", COS(U10DIR), SIN(U10DIR), ") ", "Wind Vel = ", U10ABS
+!    WRITE(4121, *) size(mag_values), size(th_values)   
+! CLOSE(4121)
 
-    ELSE
-
-        WRITE(4121, *) U10DIR, "(x_vel, y_vel) = ", "(", COS(U10DIR), SIN(U10DIR), ") ", "Wind Vel = ", U10ABS
-    ENDIF
-
-    CLOSE(4121)
-    COUNTER = COUNTER + 1
-
+    ! END MY EDITS
 
       IF (FXFM .LE. 0) THEN
         FHIGH = SIG(NK)

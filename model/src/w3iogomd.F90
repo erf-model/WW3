@@ -152,6 +152,9 @@ MODULE W3IOGOMD
   !/
   PUBLIC
   CHARACTER(LEN=1024)                   :: FLDOUT
+
+   REAL(8), allocatable :: magnitude_values(:)
+   REAL(8), allocatable :: theta_values(:)
   !/
   !/ Private parameter statements (ID strings)
   !/
@@ -161,7 +164,262 @@ MODULE W3IOGOMD
   !/
 CONTAINS
     !/ ------------------------------------------------------------------- /
+SUBROUTINE WW3_SEND_TO_ERF
 
+    USE CONSTANTS
+    USE MPICOMM
+    USE W3GDATMD  ! HAS NX, NY
+    USE W3ADATMD, ONLY: HS, WLM
+    USE W3ODATMD, ONLY: NDST, UNDEF, IAPROC, NAPROC
+    USE W3ADATMD, ONLY: NSEALM
+    USE W3PARALL, ONLY : INIT_GET_ISEA, SYNCHRONIZE_GLOBAL_ARRAY
+    ! USE W3IOGOMD,  ONLY: S2GRID 
+#ifdef W3_PDLIB
+    USE W3ODATMD, only : IAPROC, NAPROC, NTPROC
+    USE W3ADATMD, ONLY: MPI_COMM_WCMP
+    use yowDatapool, only: rtype, istatus
+    USE yowNodepool, only: npa
+    use yowNodepool, only: iplg
+    use yowDatapool, only: rkind
+#endif
+    IMPLICIT NONE
+#ifdef W3_MPI
+  INCLUDE "mpif.h"
+#endif
+
+
+! PARAMETER LIST -------------------------------------------------- *
+    INTEGER :: COUNTER
+#define W3_MPMD
+#ifdef W3_MPMD
+  LOGICAL             :: FIRST_STEP = .TRUE., initialized, mpi_initialized_by_us
+  integer             :: flag, myproc, nprocs, max_appnum, min_appnum, this_root, other_root, rank_offset, this_nboxes
+  integer             :: p, appnum, all_appnum(10), napps, all_argc(10), IERR_MPI
+  CHARACTER(LEN=80)   :: exename
+  REAL, ALLOCATABLE       :: X1(:,:)
+
+#ifdef W3_PDLIB
+  REAL(rkind)         :: XY_SEND(NX*NY)
+  REAL(rkind)         :: XY_SYNCH_SEND(NSEA)
+#else
+  DOUBLE PRECISION    :: XY_SEND(NX*NY)
+  DOUBLE PRECISION    :: XY_SYNCH_SEND(NSEA)
+#endif
+#endif
+
+    INTEGER            :: JSEA, ISEA, IX, IY, I, J
+
+! BEGIN SEND ---------------------------------------------------------- *
+
+#ifdef W3_MPMD
+
+#ifdef W3_MPI
+  CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NPROCS, IERR_MPI )
+#endif
+#ifdef W3_MPI
+  CALL MPI_COMM_RANK ( MPI_COMM_WORLD, MYPROC, IERR_MPI )
+  MYPROC = MYPROC + 1
+#endif
+
+#ifdef W3_MPI
+  print*, "My rank is ",MYPROC," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM_WW3
+
+  rank_offset = MyProc - IAPROC;
+  if (rank_offset .eq. 0) then ! First program
+     this_root = 0
+     other_root = NAPROC
+  else
+     this_root = rank_offset
+     other_root = 0
+  end if
+
+  ALLOCATE(X1(NX+1,NY))
+!  ALLOCATE(XY_SEND(NX*NY))
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+        CALL MPI_Send(NX, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
+        CALL MPI_Send(NY, 1, MPI_INT, other_root, 6, MPI_COMM_WORLD, IERR_MPI)
+     else ! the second program
+        CALL MPI_Send(NX, 1, MPI_INT, other_root, 1, MPI_COMM_WORLD, IERR_MPI)
+        CALL MPI_Send(NY, 1, MPI_INT, other_root, 7, MPI_COMM_WORLD, IERR_MPI)
+     end if
+  end if
+
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+        X1     = UNDEF
+        XY_SEND     = UNDEF
+        ! CALL S2GRID(HS, X1)
+        XY_SYNCH_SEND = HS
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+ 
+        DO JSEA=1, NSEA
+           CALL INIT_GET_ISEA(ISEA, JSEA)
+           IX     = MAPSF(ISEA,1)
+           IY     = MAPSF(ISEA,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
+        END DO
+
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 2, MPI_COMM_WORLD, IERR_MPI)
+        X1     = UNDEF
+        XY_SYNCH_SEND = WLM
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA=1, NSEA
+           CALL INIT_GET_ISEA(ISEA, JSEA)
+           IX     = MAPSF(ISEA,1)
+           IY     = MAPSF(ISEA,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 4, MPI_COMM_WORLD, IERR_MPI)
+     else ! the second program
+        X1     = UNDEF
+        XY_SEND     = UNDEF
+        XY_SYNCH_SEND = HS
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA=1, NSEA
+           CALL INIT_GET_ISEA(ISEA, JSEA)
+           IX     = MAPSF(ISEA,1)
+           IY     = MAPSF(ISEA,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 3, MPI_COMM_WORLD, IERR_MPI)
+        X1     = UNDEF
+        XY_SYNCH_SEND = WLM
+        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+        DO JSEA=1, NSEA
+           CALL INIT_GET_ISEA(ISEA, JSEA)
+           IX     = MAPSF(ISEA,1)
+           IY     = MAPSF(ISEA,2)
+           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
+        END DO
+        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 5, MPI_COMM_WORLD, IERR_MPI)
+     end if
+  end if
+
+  DEALLOCATE(X1)
+#endif
+#endif
+
+! END SEND ----------------------------------------------------------------- *
+
+END SUBROUTINE WW3_SEND_TO_ERF
+
+SUBROUTINE WW3_RECEIVE_FROM_ERF
+
+    USE CONSTANTS
+    USE MPICOMM
+    USE W3GDATMD
+    USE W3ADATMD, ONLY: HS, WLM
+    USE W3ODATMD, ONLY: NDST, UNDEF, IAPROC, NAPROC
+    USE W3ADATMD, ONLY: NSEALM
+    USE W3PARALL, ONLY : INIT_GET_ISEA, SYNCHRONIZE_GLOBAL_ARRAY
+    ! USE W3IOGOMD,  ONLY: S2GRID
+#ifdef W3_PDLIB
+    USE W3ODATMD, only : IAPROC, NAPROC, NTPROC
+    USE W3ADATMD, ONLY: MPI_COMM_WCMP
+    use yowDatapool, only: rtype, istatus
+    USE yowNodepool, only: npa
+    use yowNodepool, only: iplg
+    use yowDatapool, only: rkind
+#endif
+    IMPLICIT NONE
+#ifdef W3_MPI
+  INCLUDE "mpif.h"
+#endif
+! PARAMETER LIST -------------------------------------------------- *
+    INTEGER :: COUNTER
+#define W3_MPMD
+#ifdef W3_MPMD
+  LOGICAL             :: FIRST_STEP = .TRUE., initialized, mpi_initialized_by_us
+  integer             :: flag, myproc, nprocs, max_appnum, min_appnum, this_root, other_root, rank_offset, this_nboxes
+  integer             :: p, appnum, all_appnum(10), napps, all_argc(10), IERR_MPI
+  CHARACTER(LEN=80)   :: exename
+  REAL, ALLOCATABLE       :: X1(:,:)
+
+  INTEGER :: n_elements
+
+#ifdef W3_PDLIB
+  REAL(rkind)         :: XY_SEND(NX*NY)
+  REAL(rkind)         :: XY_SYNCH_SEND(NSEA)
+#else
+  DOUBLE PRECISION    :: XY_SEND(NX*NY)
+  DOUBLE PRECISION    :: XY_SYNCH_SEND(NSEA)
+#endif
+#endif
+
+    INTEGER            :: JSEA, ISEA, IX, IY, I, J
+
+
+#ifdef W3_MPMD
+
+#ifdef W3_MPI
+  CALL MPI_COMM_SIZE ( MPI_COMM_WORLD, NPROCS, IERR_MPI )
+#endif
+#ifdef W3_MPI
+  CALL MPI_COMM_RANK ( MPI_COMM_WORLD, MYPROC, IERR_MPI )
+  MYPROC = MYPROC + 1
+#endif
+
+#ifdef W3_MPI
+  print*, "My rank is ",MYPROC," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM_WW3
+
+  rank_offset = MyProc - IAPROC;
+  if (rank_offset .eq. 0) then ! First program
+     this_root = 0
+     other_root = NAPROC
+  else
+     this_root = rank_offset
+     other_root = 0
+  end if
+
+! BEGIN RECEIVE FROM ERF ---------------------------------------------------- *
+
+n_elements = NX * NY
+
+  if (MyProc-1 .eq. this_root) then
+     if (rank_offset .eq. 0) then !  the first program
+
+        CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 10, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI );
+
+    if(allocated(magnitude_values)) then
+        deallocate(magnitude_values)
+    endif
+
+    if(allocated(theta_values)) then
+        deallocate(theta_values)
+    endif
+
+        allocate(magnitude_values(n_elements))
+        allocate(theta_values(n_elements))
+
+        CALL MPI_RECV(magnitude_values, n_elements, MPI_DOUBLE, other_root, 12, MPI_COMM_WORLD,MPI_STATUS_IGNORE, IERR_MPI)
+        CALL MPI_RECV(theta_values, n_elements, MPI_DOUBLE, other_root, 14, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI)
+     else ! the second program
+
+
+        CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 11, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI );
+    if(allocated(magnitude_values)) then
+        deallocate(magnitude_values)
+    endif
+
+    if(allocated(theta_values)) then
+        deallocate(theta_values)
+    endif
+        allocate(magnitude_values(n_elements))
+        allocate(theta_values(n_elements))
+
+        call MPI_RECV(magnitude_values, n_elements, MPI_DOUBLE, other_root, 13, MPI_COMM_WORLD,MPI_STATUS_IGNORE, IERR_MPI)
+        call MPI_RECV(theta_values, n_elements, MPI_DOUBLE, other_root, 15, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI)
+     end if
+  end if
+
+#endif
+#endif
+
+
+
+! END RECEIVE ------------------------------------------------------------------ *
+END SUBROUTINE WW3_RECEIVE_FROM_ERF
   !> @brief Expand the seapoint array to full grid with handling of
   !>  SMC regridding.
   !>
@@ -1440,8 +1698,6 @@ CONTAINS
 
 ! MY EDITS
   INTEGER :: n_elements
-  REAL(8), allocatable :: magnitude_values(:)
-  REAL(8), allocatable :: theta_values(:)
 
 #ifdef W3_PDLIB
   REAL(rkind)         :: XY_SEND(NX*NY)
@@ -2196,7 +2452,9 @@ CONTAINS
       END IF
     END DO
 #endif
+
     ! MY EDITS
+    ! ------------ BEGIN SEND FROM ERF ------------------------*
 
 #ifdef W3_MPMD
 
@@ -2209,7 +2467,9 @@ CONTAINS
 #endif
 
 #ifdef W3_MPI
+  print*, "My rank is ",MYPROC," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM_WW3
   ! Should MPMD use the MPI rank indices adjusted for fortran?
+  !  print*, "My rank is ",MYPROC-1," out of ",NPROCS," total ranks in my part of MPI_COMM_WORLD communicator ",MPI_COMM_WORLD, "and my rank is ",IAPROC-1," out of ",NAPROC," total ranks in my part of the split communicator ", MPI_COMM
 
   rank_offset = MyProc - IAPROC;
   if (rank_offset .eq. 0) then ! First program
@@ -2219,114 +2479,19 @@ CONTAINS
      this_root = rank_offset
      other_root = 0
   end if
- 
-! Uncomment if statement if we only want to receive from ERF
-COMMENT = 0
 
-! if (COMMENT .eq. 1) then
- 
-  ALLOCATE(X1(NX+1,NY))
+! TESTING FUNCTION WW3_SEND_TO_ERF()
 
-  if (MyProc-1 .eq. this_root) then
-     if (rank_offset .eq. 0) then !  the first program
-        CALL MPI_Send(NX, 1, MPI_INT, other_root, 0, MPI_COMM_WORLD, IERR_MPI)
-        CALL MPI_Send(NY, 1, MPI_INT, other_root, 6, MPI_COMM_WORLD, IERR_MPI)
-     else ! the second program
-        CALL MPI_Send(NX, 1, MPI_INT, other_root, 1, MPI_COMM_WORLD, IERR_MPI)
-        CALL MPI_Send(NY, 1, MPI_INT, other_root, 7, MPI_COMM_WORLD, IERR_MPI)
-     end if
-  end if
+COMMENT = 2
+print *, "WW3: Calling WW3_SEND_TO_ERF from w3iogomd"
 
-  if (MyProc-1 .eq. this_root) then
-     if (rank_offset .eq. 0) then !  the first program
-        X1     = UNDEF
-        XY_SEND     = UNDEF
-!        DO IX=1,NX
-!           DO IY=1,NY
-!              XY_SEND((IX)+(IY-1)*NX)=0.0
-!           END DO
-!        END DO
-        CALL S2GRID(HS, X1)
-        XY_SYNCH_SEND = HS
-        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
+CALL WW3_SEND_TO_ERF()
 
-
-        DO JSEA=1, NSEA
-           CALL INIT_GET_ISEA(ISEA, JSEA)
-           IX     = MAPSF(ISEA,1)
-           IY     = MAPSF(ISEA,2)
-           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
-        END DO
-
-        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 2, MPI_COMM_WORLD, IERR_MPI)
-        X1     = UNDEF
-        XY_SYNCH_SEND = WLM
-        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
-        DO JSEA=1, NSEA
-           CALL INIT_GET_ISEA(ISEA, JSEA)
-           IX     = MAPSF(ISEA,1)
-           IY     = MAPSF(ISEA,2)
-           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
-        END DO
-        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 4, MPI_COMM_WORLD, IERR_MPI)
-     else ! the second program
-        X1     = UNDEF
-        XY_SEND     = UNDEF
-        XY_SYNCH_SEND = HS
-        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
-        DO JSEA=1, NSEA
-           CALL INIT_GET_ISEA(ISEA, JSEA)
-           IX     = MAPSF(ISEA,1)
-           IY     = MAPSF(ISEA,2)
-           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
-        END DO
-        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 3, MPI_COMM_WORLD, IERR_MPI)
-        X1     = UNDEF
-        XY_SYNCH_SEND = WLM
-        CALL SYNCHRONIZE_GLOBAL_ARRAY(XY_SYNCH_SEND)
-        DO JSEA=1, NSEA
-           CALL INIT_GET_ISEA(ISEA, JSEA)
-           IX     = MAPSF(ISEA,1)
-           IY     = MAPSF(ISEA,2)
-           XY_SEND((IX)+(IY-1)*NX)=XY_SYNCH_SEND(ISEA)
-        END DO
-        CALL MPI_Send(XY_SEND, NX*NY, MPI_DOUBLE, other_root, 5, MPI_COMM_WORLD, IERR_MPI)
-     end if
-  end if
-
-  DEALLOCATE(X1)
-!  DEALLOCATE(XY_SEND)
-! end if
-
-! if (COMMENT .eq. 0) then
-
-  if (MyProc-1 .eq. this_root) then
-     if (rank_offset .eq. 0) then !  the first program
-
-        CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 10, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI );
-        allocate(magnitude_values(n_elements))
-        allocate(theta_values(n_elements))
-
-        CALL MPI_RECV(magnitude_values, n_elements, MPI_DOUBLE, other_root, 12, MPI_COMM_WORLD,MPI_STATUS_IGNORE, IERR_MPI)
-        CALL MPI_RECV(theta_values, n_elements, MPI_DOUBLE, other_root, 14, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI)
-     else ! the second program
-
-        CALL MPI_RECV( n_elements, 1, MPI_INT, other_root, 11, MPI_COMM_WORLD, MPI_STATUS_IGNORE,IERR_MPI );
-        allocate(magnitude_values(n_elements))
-        allocate(theta_values(n_elements))
-
-        call MPI_RECV(magnitude_values, n_elements, MPI_DOUBLE, other_root, 13, MPI_COMM_WORLD,MPI_STATUS_IGNORE, IERR_MPI)
-        call MPI_RECV(theta_values, n_elements, MPI_DOUBLE, other_root, 15, MPI_COMM_WORLD, MPI_STATUS_IGNORE, IERR_MPI)
-     end if
-  end if
 #endif
 #endif
 
-! end if
 
-    
-
-
+! ----------- END OF SEND FROM ERF ---------------------------*
 
     ! 4.  Peak frequencies and directions -------------------------------- *
     ! 4.a Initialize

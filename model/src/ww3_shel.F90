@@ -252,6 +252,11 @@ PROGRAM W3SHEL
   !/ ------------------------------------------------------------------- /
 
   use w3servmd, only : print_memcheck
+
+! MY EDITS HERE
+  USE W3ADATMD, ONLY: HS_MPI => HS, WLM
+  USE CONSTANTS, ONLY: UNDEF
+  USE W3PARALL, ONLY : INIT_GET_ISEA, SYNCHRONIZE_GLOBAL_ARRAY
 #ifdef W3_PDLIB
   USE CONSTANTS, ONLY: LPDLIB
 #endif
@@ -279,7 +284,7 @@ PROGRAM W3SHEL
   USE W3WDASMD
   !/
   USE W3IOGRMD, ONLY: W3IOGR
-  USE W3IOGOMD, ONLY: W3READFLGRD, FLDOUT, W3FLGRDFLAG
+  USE W3IOGOMD, ONLY: W3READFLGRD, FLDOUT, W3FLGRDFLAG, S2GRID
   USE W3IORSMD, ONLY: OARST
   USE W3IOPOMD
   USE W3SERVMD, ONLY : NEXTLN, EXTCDE
@@ -310,7 +315,7 @@ PROGRAM W3SHEL
   USE OMP_LIB
 #endif
 #ifdef W3_MPI
-  USE MPICOMM
+  USE MPICOMM, ONLY: MPI_COMM_WW3
 #endif
   IMPLICIT NONE
   !
@@ -405,6 +410,22 @@ PROGRAM W3SHEL
   integer             :: flag, myproc, nprocs, max_appnum, min_appnum, this_root, other_root, rank_offset, this_nboxes
   integer             :: p, appnum, all_appnum(10), napps, all_argc(10), end_flag
   CHARACTER(LEN=80)   :: exename
+
+! MY EDITS HERE
+  REAL, ALLOCATABLE       :: X1(:,:)
+  INTEGER :: n_elements, ISEA, JSEA, IX, IY
+   REAL(8), allocatable :: magnitude_values(:)
+   REAL(8), allocatable :: theta_values(:)
+
+#ifdef W3_PDLIB
+  REAL(rkind)         :: XY_SEND(:)
+  REAL(rkind)         :: XY_SYNCH_SEND(:)
+
+#else
+  DOUBLE PRECISION, ALLOCATABLE    :: XY_SEND(:)
+  DOUBLE PRECISION, ALLOCATABLE    :: XY_SYNCH_SEND(:)
+#endif
+
 #endif
   character(len=10)   :: jchar
   integer             :: memunit
