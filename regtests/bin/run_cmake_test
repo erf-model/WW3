@@ -1550,10 +1550,14 @@ then
     elif [ $multi -eq 0 ] && [ $coupl = "MPMD" ]
     then
 	halfnproc=$(($nproc / 2))
+    echo "DEBUG: halfnproc is : $halfnproc"
+    echo "DEBUG: nproc is : $nproc"
+
 	echo "Consider setting up environment to put other executable in $path_w or $path_w/toy_model"
 	echo "Use $halfnproc MPI Ranks for both of them"
 	path_mpmd_e=~/codes/ERF/Exec/DevTests/ABL_with_WW3/ERF3d.gnu.DEBUG.MPI.ex
 	path_mpmd_i=~/codes/ERF/Exec/DevTests/ABL_with_WW3/inputs_mpmd
+    echo "DEBUG: Running command: $runcmd -np $halfnproc $path_e/$prgb : -np $halfnproc $path_mpmd_e $path_mpmd_i"
         echo "Currently hardcoding executable and input file to $path_mpmd_e $path_mpmd_i , if this is not found assume submodule"
 	if ! [ -f $path_mpmd_i ]; then
 	    path_mpmd_e=$ww3_dir/../../Exec/DevTests/ABL_with_WW3/ERF3d.gnu.DEBUG.MPI.ex
@@ -1566,7 +1570,8 @@ then
       then
           errmsg "Error occured during $path_e/$prog execution"
           exit 1
-      elif $runcmd -np $halfnproc $path_e/$prgb : -np $halfnproc $path_mpmd_e $path_mpmd_i | tee $ofile
+      #elif $runcmd -np $halfnproc $path_e/$prgb : -np $halfnproc $path_mpmd_e $path_mpmd_i | tee $ofile
+      elif $runcmd -np 1  $path_e/$prgb : -np 3 $path_mpmd_e $path_mpmd_i | tee $ofile
       then
         \rm -f track_i.ww3
         \rm -f $prog.inp
@@ -1575,6 +1580,14 @@ then
         errmsg "Error occured during $path_e/$prog execution"
         exit 1
       fi
+      # MY EDITS 
+      #mpirun -np 1 $path_mpmd_e $path_mpmd_i | tee -a $ofile
+      #if [ $? -ne 0 ]; then
+      #errmsg "We have an Error occurred during $path_mpmd_e execution"
+      #  exit 1
+      #fi
+       
+      #echo "Second executable finished"
     else
       if $runprog $path_e/$prgb | tee $ofile
       then
