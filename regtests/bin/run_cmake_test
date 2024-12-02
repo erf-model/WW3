@@ -1571,7 +1571,9 @@ then
           errmsg "Error occured during $path_e/$prog execution"
           exit 1
       #elif $runcmd -np $halfnproc $path_e/$prgb : -np $halfnproc $path_mpmd_e $path_mpmd_i | tee $ofile
-      elif $runcmd -np 1  $path_e/$prgb : -np 3 $path_mpmd_e $path_mpmd_i | tee $ofile
+      
+      elif $runcmd -np 1  $path_e/$prgb : -np 1 $path_mpmd_e $path_mpmd_i | tee $ofile
+      #elif mpirun --bind-to core:0 -np 1 $path_e/$prgb :  --bind-to core:2,3 -np 2 $path_mpmd_e $path_mpmd_i | tee $ofile
       then
         \rm -f track_i.ww3
         \rm -f $prog.inp
