@@ -2483,9 +2483,9 @@ END SUBROUTINE WW3_RECEIVE_FROM_ERF
 ! TESTING FUNCTION WW3_SEND_TO_ERF()
 
 COMMENT = 2
-print *, "WW3: Calling WW3_SEND_TO_ERF from w3iogomd"
+print *, "COMMENTING OUT: Calling WW3_SEND_TO_ERF from w3iogomd"
 
-CALL WW3_SEND_TO_ERF()
+! CALL WW3_SEND_TO_ERF()
 
 #endif
 #endif

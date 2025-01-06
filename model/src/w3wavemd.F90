@@ -602,8 +602,8 @@ CONTAINS
     REAL, ALLOCATABLE       :: BACSPEC(:)
     REAL                    :: BACANGL
 #endif
-    integer :: memunit, COUNTER, n_elements
-
+    integer :: memunit, COUNTER, n_elements, COMMENT
+COMMENT = 1
 n_elements = NX * NY
     !/ ------------------------------------------------------------------- /
     ! 0.  Initializations
@@ -1037,7 +1037,11 @@ print *, "We have reached the end of Section 1.d (Wind Interval)"
     print *, "We have reached the end of Section 2"
       !
 ! MY EDITS HERE
-print *, "WW3: Calling WW3_RECEIVE_FROM_ERF from w3wavemd"
+print *, "COMMENTING OUT FIRST CALL WW3_RECEIVE_FROM_ERF from w3wavemd"
+
+! START BLOCK COMMENT
+IF ( COMMENT .EQ. 0 ) THEN
+print *, "TESTING BLOCK COMMENT"
 CALL WW3_RECEIVE_FROM_ERF()
     open(unit=6123, file='ww3_mpi_recv.txt', status='unknown', access='append', action="write")
      DO JSEA=1, NSEAL
@@ -1061,6 +1065,9 @@ DO JSEA=1, NSEAL
    U10(JSEA) = magnitude_values(JSEA)
    U10D(JSEA) = theta_values(JSEA)
 END DO
+
+END IF
+! END BLOCK COMMENT
 
       ! ==================================================================== /
       !
@@ -1515,8 +1522,11 @@ print*, "DO  LOOP, IT, NT: ",  IT, NT
 #endif
 ! print *, "WW3: ABOUT TO CALL SOURCE TERM SUBROUTINE", ISEA, U10(ISEA)
 if (.FALSE.) then
-print *, "WW3: Calling WW3_RECEIVE_FROM_ERF from w3wavemd"
-CALL WW3_RECEIVE_FROM_ERF()
+print *, "COMMENTING OUT WW3_RECEIVE_FROM_ERF from w3wavemd"
+
+! START BLOCK COMMENT
+IF ( COMMENT .EQ. 0 ) THEN
+! CALL WW3_RECEIVE_FROM_ERF()
     open(unit=6123, file='ww3_mpi_recv.txt', status='unknown', access='append', action="write")
      DO JSEA=1, NSEAL
          CALL INIT_GET_ISEA(ISEA, JSEA)
@@ -1539,6 +1549,9 @@ DO JSEA=1, NSEAL
    U10(JSEA) = magnitude_values(JSEA)
    U10D(JSEA) = theta_values(JSEA)
 END DO
+
+END IF
+! END BLOCK COMMENT
  
 ENDIF
 
